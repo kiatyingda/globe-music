@@ -1,0 +1,1457 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import * as d3 from 'd3';
+
+const PALETTE = {
+  bg: '#F0EBDF',
+  ink: '#0A0A0A',
+  mute: '#8C8577',
+  hairline: '#CFC8B8',
+  accent: '#B0411E',
+};
+
+// ---------- hash ----------
+function hash(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h * 33) ^ str.charCodeAt(i)) >>> 0;
+  }
+  return h;
+}
+
+// ---------- TopoJSON decoder ----------
+function topoToGeo(topology, name) {
+  const transform = topology.transform;
+  const scale = transform ? transform.scale : [1, 1];
+  const translate = transform ? transform.translate : [0, 0];
+
+  const arcs = topology.arcs.map((arc) => {
+    let x = 0,
+      y = 0;
+    return arc.map(([dx, dy]) => {
+      x += dx;
+      y += dy;
+      return [x * scale[0] + translate[0], y * scale[1] + translate[1]];
+    });
+  });
+
+  function resolveArc(i) {
+    if (i < 0) return arcs[~i].slice().reverse();
+    return arcs[i].slice();
+  }
+
+  function stitch(arcIndices) {
+    const out = [];
+    for (let i = 0; i < arcIndices.length; i++) {
+      const arc = resolveArc(arcIndices[i]);
+      if (i > 0) arc.shift();
+      for (const pt of arc) out.push(pt);
+    }
+    return out;
+  }
+
+  const object = topology.objects[name];
+  const features = object.geometries.map((g) => {
+    let coords = null;
+    if (g.type === 'Polygon') {
+      coords = g.arcs.map((ring) => stitch(ring));
+    } else if (g.type === 'MultiPolygon') {
+      coords = g.arcs.map((poly) => poly.map((ring) => stitch(ring)));
+    } else if (g.type === 'LineString') {
+      coords = stitch(g.arcs);
+    }
+    return {
+      type: 'Feature',
+      geometry: { type: g.type, coordinates: coords },
+      properties: g.properties || {},
+    };
+  });
+
+  return { type: 'FeatureCollection', features };
+}
+
+// ---------- cover glyph ----------
+function computeGlyph(artist, track) {
+  const h = hash(`${artist}|${track}`);
+  const inv = (h & 0xff) < 90;
+  const bg = inv ? PALETTE.ink : PALETTE.bg;
+  const fg = inv ? PALETTE.bg : PALETTE.ink;
+  const comp = h % 12;
+  const v1 = (h >> 8) & 0xff;
+  const v2 = (h >> 16) & 0xff;
+
+  let content = null;
+
+  if (comp === 0) {
+    const n = 3 + (v1 % 3);
+    content = Array.from({ length: n }, (_, i) => (
+      <circle
+        key={i}
+        cx="24"
+        cy="24"
+        r={4 + (i * 17) / n}
+        fill="none"
+        stroke={fg}
+        strokeWidth={i === 0 ? 2 : 0.8}
+      />
+    ));
+  } else if (comp === 1) {
+    content = (
+      <>
+        <circle cx="24" cy="24" r="11" fill={fg} />
+        <circle cx="24" cy="24" r="19" fill="none" stroke={fg} strokeWidth="0.6" />
+      </>
+    );
+  } else if (comp === 2) {
+    const k = v1 % 4;
+    content = (
+      <>
+        <rect x="0" y="0" width="48" height="24" fill={fg} />
+        {k === 0 && <circle cx="24" cy="34" r="6" fill={fg} />}
+        {k === 1 && <rect x="18" y="30" width="12" height="12" fill={fg} />}
+        {k === 2 && <line x1="8" y1="36" x2="40" y2="36" stroke={fg} strokeWidth="1.5" />}
+        {k === 3 && <path d="M18 42 L24 30 L30 42 Z" fill={fg} />}
+      </>
+    );
+  } else if (comp === 3) {
+    const k = v1 % 3;
+    content = (
+      <>
+        <rect x="0" y="0" width="24" height="48" fill={fg} />
+        {k === 0 && <circle cx="36" cy="24" r="7" fill={fg} />}
+        {k === 1 && <rect x="30" y="16" width="14" height="16" fill={fg} />}
+        {k === 2 && (
+          <g>
+            {[0, 1, 2].map((i) => (
+              <circle key={i} cx="36" cy={14 + i * 10} r="2.2" fill={fg} />
+            ))}
+          </g>
+        )}
+      </>
+    );
+  } else if (comp === 4) {
+    content = (
+      <>
+        <rect x="0" y="0" width="24" height="24" fill={fg} />
+        <rect x="24" y="24" width="24" height="24" fill={fg} />
+      </>
+    );
+  } else if (comp === 5) {
+    content = <circle cx="24" cy="24" r="15" fill={fg} />;
+  } else if (comp === 6) {
+    const thickness = 10 + (v1 % 8);
+    const y = 8 + (v2 % 22);
+    content = <rect x="0" y={y} width="48" height={thickness} fill={fg} />;
+  } else if (comp === 7) {
+    const n = 3 + (v1 % 3);
+    const pad = 10;
+    const step = (48 - 2 * pad) / (n - 1);
+    const dots = [];
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        dots.push(
+          <circle
+            key={`${i}-${j}`}
+            cx={pad + j * step}
+            cy={pad + i * step}
+            r="1.8"
+            fill={fg}
+          />
+        );
+      }
+    }
+    content = <>{dots}</>;
+  } else if (comp === 8) {
+    const angleDeg = [30, 45, 60, 120, 135, 150][v1 % 6];
+    const ang = (angleDeg * Math.PI) / 180;
+    const len = 40;
+    const x1 = 24 - (Math.cos(ang) * len) / 2;
+    const y1 = 24 - (Math.sin(ang) * len) / 2;
+    const x2 = 24 + (Math.cos(ang) * len) / 2;
+    const y2 = 24 + (Math.sin(ang) * len) / 2;
+    content = (
+      <>
+        <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={fg} strokeWidth="2.5" />
+        <circle cx="24" cy="24" r="4" fill={fg} />
+      </>
+    );
+  } else if (comp === 9) {
+    const side = v1 % 4;
+    let d;
+    if (side === 0) d = 'M8 24 A16 16 0 0 1 40 24 Z';
+    else if (side === 1) d = 'M8 24 A16 16 0 0 0 40 24 Z';
+    else if (side === 2) d = 'M24 8 A16 16 0 0 1 24 40 Z';
+    else d = 'M24 8 A16 16 0 0 0 24 40 Z';
+    content = <path d={d} fill={fg} />;
+  } else if (comp === 10) {
+    content = (
+      <>
+        <line x1="0" y1="24" x2="48" y2="24" stroke={fg} strokeWidth="0.8" />
+        <line x1="24" y1="0" x2="24" y2="48" stroke={fg} strokeWidth="0.8" />
+        <rect x="20" y="20" width="8" height="8" fill={fg} />
+      </>
+    );
+  } else {
+    const nBars = 2 + (v1 % 3);
+    const gap = 3;
+    const availH = 48 - (nBars + 1) * gap;
+    const barH = availH / nBars;
+    const bars = [];
+    for (let i = 0; i < nBars; i++) {
+      const inset = (i % 2) * 10;
+      bars.push(
+        <rect
+          key={i}
+          x={gap + inset}
+          y={gap + i * (barH + gap)}
+          width={48 - 2 * gap - inset}
+          height={barH}
+          fill={fg}
+        />
+      );
+    }
+    content = <>{bars}</>;
+  }
+
+  return { bg, content };
+}
+
+function CoverGlyph({ artist, track, size = 48, className }) {
+  const { bg, content } = computeGlyph(artist, track);
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 48 48"
+      style={{ display: 'block' }}
+      className={className}
+      shapeRendering="geometricPrecision"
+    >
+      <rect width="48" height="48" fill={bg} />
+      {content}
+    </svg>
+  );
+}
+
+function CoverGlyphInline({ artist, track, x = 0, y = 0, size = 48 }) {
+  const { bg, content } = computeGlyph(artist, track);
+  const s = size / 48;
+  return (
+    <g transform={`translate(${x}, ${y}) scale(${s})`} shapeRendering="geometricPrecision">
+      <rect width="48" height="48" fill={bg} />
+      {content}
+    </g>
+  );
+}
+
+// ---------- mock posts ----------
+const MOCK_POSTS = [
+  { id: 1, handle: '@kiko_sun', lat: 35.6762, lng: 139.6503, city: 'TOKYO', hood: 'GINZA', trackName: 'First Love', artistName: 'Hikaru Utada', service: 'SPOTIFY', vibeNote: 'first rain of the season. 6am. ginza is a painting.', hrs: 0.15 },
+  { id: 2, handle: '@alfama_cat', lat: 38.7223, lng: -9.1393, city: 'LISBON', hood: 'ALFAMA', trackName: 'Tigresa', artistName: 'Caetano Veloso', service: 'SPOTIFY', vibeNote: 'saudade is its own weather.', hrs: 0.4 },
+  { id: 3, handle: '@late_train', lat: 1.3916, lng: 103.8953, city: 'SINGAPORE', hood: 'SENGKANG', trackName: 'Dreamer', artistName: 'Sungazer', service: 'YOUTUBE', vibeNote: 'mrt at midnight. bass in the rails.', hrs: 0.5 },
+  { id: 4, handle: '@bodega_nights', lat: 40.7178, lng: -73.9898, city: 'NEW YORK', hood: 'LES', trackName: 'White Ferrari', artistName: 'Frank Ocean', service: 'APPLE MUSIC', vibeNote: 'bodega cat, 4am, not my problem.', hrs: 0.9 },
+  { id: 5, handle: '@north_wind', lat: 64.1466, lng: -21.9426, city: 'REYKJAVÍK', hood: 'LAUGAVEGUR', trackName: 'Hoppípolla', artistName: 'Sigur Rós', service: 'SPOTIFY', vibeNote: 'aurora is thin. the song gets there anyway.', hrs: 0.75 },
+  { id: 6, handle: '@mole_poblano', lat: 17.0732, lng: -96.7266, city: 'OAXACA', hood: 'CENTRO', trackName: 'La Cumbia del Mole', artistName: 'Lila Downs', service: 'SOUNDCLOUD', vibeNote: 'mole and cumbia. nothing else survives.', hrs: 2.3 },
+  { id: 7, handle: '@nile_slow', lat: 30.0626, lng: 31.2197, city: 'CAIRO', hood: 'ZAMALEK', trackName: 'Enta Omri', artistName: 'Umm Kulthum', service: 'SPOTIFY', vibeNote: 'the nile is moving slower than the traffic.', hrs: 4 },
+  { id: 8, handle: '@noraebang', lat: 37.5340, lng: 126.9940, city: 'SEOUL', hood: 'ITAEWON', trackName: 'Through the Night', artistName: 'IU', service: 'APPLE MUSIC', vibeNote: 'noraebang at 4am. voice gone. worth it.', hrs: 6 },
+  { id: 9, handle: '@palermo_tango', lat: -34.5755, lng: -58.4305, city: 'BUENOS AIRES', hood: 'PALERMO', trackName: 'Santa Maria (del Buen Ayre)', artistName: 'Gotan Project', service: 'SPOTIFY', vibeNote: 'tango bleeds through the wall.', hrs: 8 },
+  { id: 10, handle: '@kreuz_hum', lat: 52.4996, lng: 13.4033, city: 'BERLIN', hood: 'KREUZBERG', trackName: 'Says', artistName: 'Nils Frahm', service: 'BANDCAMP', vibeNote: 'u-bahn hum. piano somewhere above.', hrs: 12 },
+  { id: 11, handle: '@bandra_rain', lat: 19.0596, lng: 72.8295, city: 'MUMBAI', hood: 'BANDRA', trackName: 'Dil Se Re', artistName: 'A.R. Rahman', service: 'SPOTIFY', vibeNote: 'monsoon. dosa. this song.', hrs: 3 },
+  { id: 12, handle: '@atlantic_wind', lat: -33.9293, lng: 18.4487, city: 'CAPE TOWN', hood: 'WOODSTOCK', trackName: 'Cucurucu', artistName: 'Nick Mulvey', service: 'APPLE MUSIC', vibeNote: 'atlantic wind at the bus stop.', hrs: 14 },
+  { id: 13, handle: '@fog_cathedral', lat: 37.7599, lng: -122.4148, city: 'SAN FRANCISCO', hood: 'MISSION', trackName: 'Nobody', artistName: 'Mitski', service: 'SPOTIFY', vibeNote: 'fog eating the hills.', hrs: 16 },
+  { id: 14, handle: '@ponsonby_drop', lat: -36.8509, lng: 174.7400, city: 'AUCKLAND', hood: 'PONSONBY', trackName: 'Wandering Eye', artistName: "Fat Freddy's Drop", service: 'BANDCAMP', vibeNote: 'pacific blue all the way down.', hrs: 5 },
+  { id: 15, handle: '@medina_tea', lat: 31.6295, lng: -7.9811, city: 'MARRAKECH', hood: 'MEDINA', trackName: 'Essiniya', artistName: 'Nass El Ghiwane', service: 'YOUTUBE', vibeNote: 'tea. spice. the square at dusk.', hrs: 7 },
+  { id: 16, handle: '@bosphorus', lat: 41.0359, lng: 28.9784, city: 'ISTANBUL', hood: 'BEYOĞLU', trackName: 'Yolcu', artistName: 'Altın Gün', service: 'SPOTIFY', vibeNote: 'bosphorus ferry. backward through time.', hrs: 11 },
+  { id: 17, handle: '@marble_cold', lat: 25.2072, lng: 55.2708, city: 'DUBAI', hood: 'JUMEIRAH', trackName: 'Piel', artistName: 'Arca', service: 'SOUNDCLOUD', vibeNote: 'sand in the ac. marble cold.', hrs: 20 },
+  { id: 18, handle: '@gion_heron', lat: 35.0037, lng: 135.7781, city: 'KYOTO', hood: 'GION', trackName: 'Sports Men', artistName: 'Haruomi Hosono', service: 'SPOTIFY', vibeNote: 'temple bell. a heron takes off.', hrs: 1.1 },
+  { id: 19, handle: '@malecon', lat: 23.1380, lng: -82.3772, city: 'HAVANA', hood: 'VEDADO', trackName: 'Dos Gardenias', artistName: 'Ibrahim Ferrer', service: 'SPOTIFY', vibeNote: 'malecón. the sea is warm.', hrs: 30 },
+  { id: 20, handle: '@ari_moto', lat: 13.7798, lng: 100.5418, city: 'BANGKOK', hood: 'ARI', trackName: 'Lover Boy', artistName: 'Phum Viphurit', service: 'YOUTUBE', vibeNote: 'moto taxi. neon through the rain.', hrs: 18 },
+  { id: 21, handle: '@midnight_sun', lat: 59.9225, lng: 10.7577, city: 'OSLO', hood: 'GRÜNERLØKKA', trackName: 'Runaway', artistName: 'Aurora', service: 'APPLE MUSIC', vibeNote: 'white night. fjord is glass.', hrs: 22 },
+  { id: 22, handle: '@belleville', lat: 48.8721, lng: 2.3770, city: 'PARIS', hood: 'BELLEVILLE', trackName: 'Tous les garçons et les filles', artistName: 'Françoise Hardy', service: 'SPOTIFY', vibeNote: 'seine. cigarette smoke. 9pm.', hrs: 26 },
+  { id: 23, handle: '@samba_wall', lat: -30.0277, lng: -51.2287, city: 'PORTO ALEGRE', hood: 'CIDADE BAIXA', trackName: 'A Carne', artistName: 'Elza Soares', service: 'SPOTIFY', vibeNote: 'samba school rehearses two streets away.', hrs: 34 },
+  { id: 24, handle: '@scooter_brake', lat: 21.0292, lng: 105.8542, city: 'HANOI', hood: 'HOAN KIEM', trackName: 'Cuốn Theo Chiều Gió', artistName: 'Saigon Soul Revival', service: 'BANDCAMP', vibeNote: 'pho steam. scooter. brake.', hrs: 19 },
+  { id: 25, handle: '@soder_ferry', lat: 59.3142, lng: 18.0720, city: 'STOCKHOLM', hood: 'SÖDERMALM', trackName: 'Heartbeats', artistName: 'The Knife', service: 'SPOTIFY', vibeNote: 'archipelago ferry. november.', hrs: 28 },
+  { id: 26, handle: '@bora_gate', lat: 45.6495, lng: 13.7768, city: 'TRIESTE', hood: 'CITTÀ VECCHIA', trackName: 'Ovunque Proteggi', artistName: 'Vinicio Capossela', service: 'SPOTIFY', vibeNote: 'bora wind at the bora gate.', hrs: 40 },
+  { id: 27, handle: '@teh_tarik', lat: 3.1319, lng: 101.6841, city: 'KUALA LUMPUR', hood: 'BANGSAR', trackName: 'Lullabies', artistName: 'Yuna', service: 'APPLE MUSIC', vibeNote: "teh tarik. storm's about to break.", hrs: 9 },
+  { id: 28, handle: '@sulfur_baths', lat: 41.6938, lng: 44.8015, city: 'TBILISI', hood: 'OLD TOWN', trackName: 'Gana Gana', artistName: 'Mgzavrebi', service: 'YOUTUBE', vibeNote: 'sulfur baths. rain stops. starts again.', hrs: 36 },
+  { id: 29, handle: '@jacaranda', lat: 19.4120, lng: -99.1730, city: 'CDMX', hood: 'CONDESA', trackName: 'Hasta la Raíz', artistName: 'Natalia Lafourcade', service: 'SPOTIFY', vibeNote: 'jacaranda. afternoon light. old café.', hrs: 24 },
+  { id: 30, handle: '@rooftop_mango', lat: 23.7465, lng: 90.3760, city: 'DHAKA', hood: 'DHANMONDI', trackName: 'Deora', artistName: 'Coke Studio Bangla', service: 'YOUTUBE', vibeNote: 'rooftop. mangoes. whole city below.', hrs: 38 },
+  { id: 31, handle: '@hamra_dawn', lat: 33.8998, lng: 35.4822, city: 'BEIRUT', hood: 'HAMRA', trackName: 'Li Beirut', artistName: 'Fairuz', service: 'SPOTIFY', vibeNote: 'mediterranean from the balcony. 7am.', hrs: 42 },
+  { id: 32, handle: '@kallio_snow', lat: 60.1841, lng: 24.9498, city: 'HELSINKI', hood: 'KALLIO', trackName: 'Deeper Shadows', artistName: 'Jaakko Eino Kalevi', service: 'BANDCAMP', vibeNote: 'sauna. snow. sauna.', hrs: 32 },
+  { id: 33, handle: '@matatu_bass', lat: -1.2921, lng: 36.7842, city: 'NAIROBI', hood: 'KILIMANI', trackName: 'Mungu Pekee', artistName: 'Nyashinski', service: 'APPLE MUSIC', vibeNote: 'matatu bass. dust. golden hour.', hrs: 48 },
+  { id: 34, handle: '@bodega_lima', lat: -12.1461, lng: -77.0224, city: 'LIMA', hood: 'BARRANCO', trackName: 'María Landó', artistName: 'Susana Baca', service: 'SPOTIFY', vibeNote: 'fog off the sea. bodega opens.', hrs: 52 },
+  { id: 35, handle: '@thamel', lat: 27.7151, lng: 85.3107, city: 'KATHMANDU', hood: 'THAMEL', trackName: 'Sathi', artistName: 'Bartika Eam Rai', service: 'YOUTUBE', vibeNote: 'himalayan dawn. tea is too hot.', hrs: 44 },
+  { id: 36, handle: '@cobbles', lat: 56.9496, lng: 24.1052, city: 'RIGA', hood: 'CENTRS', trackName: 'Nobody Knows', artistName: 'Lauris Reiniks', service: 'SPOTIFY', vibeNote: 'cobblestones. black coffee. tram bell.', hrs: 56 },
+  { id: 37, handle: '@orthodox', lat: 42.6977, lng: 23.3219, city: 'SOFIA', hood: 'CENTRE', trackName: 'Izlel E Delyu Haydutin', artistName: 'Valya Balkanska', service: 'SPOTIFY', vibeNote: 'orthodox bells. first frost.', hrs: 60 },
+  { id: 38, handle: '@makati_rain', lat: 14.5547, lng: 121.0244, city: 'MANILA', hood: 'MAKATI', trackName: 'Kathang Isip', artistName: 'Ben&Ben', service: 'APPLE MUSIC', vibeNote: 'typhoon skies. jeepney horn.', hrs: 17 },
+  { id: 39, handle: '@freo_fish', lat: -32.0569, lng: 115.7439, city: 'PERTH', hood: 'FREMANTLE', trackName: 'The Less I Know The Better', artistName: 'Tame Impala', service: 'SPOTIFY', vibeNote: 'indian ocean. fish and chips. 4pm.', hrs: 46 },
+  { id: 40, handle: '@jordaan_cafe', lat: 52.3742, lng: 4.8843, city: 'AMSTERDAM', hood: 'JORDAAN', trackName: 'A Night Like This', artistName: 'Caro Emerald', service: 'SPOTIFY', vibeNote: 'canal ice. candle. brown café.', hrs: 50 },
+];
+
+// ---------- decrypted text ----------
+function DecryptedText({ text, duration = 700 }) {
+  const [display, setDisplay] = useState(text);
+  const ranRef = useRef(false);
+
+  useEffect(() => {
+    if (ranRef.current) return;
+    ranRef.current = true;
+    const glyphs = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-./';
+    const start = performance.now();
+    let raf;
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const fixIndex = Math.floor(t * text.length);
+      const out = [];
+      for (let i = 0; i < text.length; i++) {
+        if (i < fixIndex) out.push(text[i]);
+        else out.push(glyphs[Math.floor(Math.random() * glyphs.length)]);
+      }
+      setDisplay(out.join(''));
+      if (t < 1) raf = requestAnimationFrame(tick);
+      else setDisplay(text);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [text, duration]);
+
+  return <span>{display}</span>;
+}
+
+// ---------- split text ----------
+function SplitText({ text }) {
+  const words = text.split(' ');
+  const stagger = words.length > 1 ? Math.min(35, (600 - 180) / (words.length - 1)) : 0;
+  return (
+    <span className="split-container">
+      {words.map((w, i) => (
+        <span
+          key={i}
+          className="split-word"
+          style={{ animationDelay: `${Math.round(i * stagger)}ms` }}
+        >
+          {w}
+          {i < words.length - 1 ? '\u00A0' : ''}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+// ---------- noise ----------
+function Noise() {
+  return (
+    <svg className="noise" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <filter id="noise-filter">
+        <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" />
+        <feColorMatrix
+          type="matrix"
+          values="0 0 0 0 0.039  0 0 0 0 0.039  0 0 0 0 0.039  0 0 0 0.55 0"
+        />
+      </filter>
+      <rect width="100%" height="100%" filter="url(#noise-filter)" />
+    </svg>
+  );
+}
+
+// ---------- service link helper ----------
+function serviceFromLink(link) {
+  const s = (link || '').toLowerCase();
+  if (s.includes('spotify.com')) return 'SPOTIFY';
+  if (s.includes('music.apple')) return 'APPLE MUSIC';
+  if (s.includes('youtube') || s.includes('youtu.be')) return 'YOUTUBE';
+  if (s.includes('soundcloud')) return 'SOUNDCLOUD';
+  if (s.includes('bandcamp')) return 'BANDCAMP';
+  return 'SPOTIFY';
+}
+
+function formatHrs(hrs) {
+  if (hrs === 0) return 'JUST NOW';
+  if (hrs < 1) return `${Math.max(1, Math.round(hrs * 60))}M AGO`;
+  if (hrs < 24) return `${Math.round(hrs)}H AGO`;
+  return `${Math.round(hrs / 24)}D AGO`;
+}
+
+// ---------- globe ----------
+function Globe({ posts, onPick }) {
+  const SIZE = 640;
+  const CX = SIZE / 2;
+  const CY = SIZE / 2;
+  const R = 185;
+
+  const rotRef = useRef([30, -12, 0]);
+  const autoRef = useRef(true);
+  const lastInteractRef = useRef(0);
+  const [, bump] = useState(0);
+  const [countries, setCountries] = useState(null);
+  const [offline, setOffline] = useState(false);
+  const [hovered, setHovered] = useState(null);
+
+  const graticule = useMemo(() => d3.geoGraticule10(), []);
+  const projection = useMemo(
+    () =>
+      d3
+        .geoOrthographic()
+        .translate([CX, CY])
+        .scale(R)
+        .clipAngle(90),
+    [CX, CY, R]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const urls = [
+      'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json',
+      'https://unpkg.com/world-atlas@2/countries-110m.json',
+    ];
+    (async () => {
+      for (const url of urls) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const topo = await res.json();
+          if (cancelled) return;
+          const geo = topoToGeo(topo, 'countries');
+          setCountries(geo);
+          return;
+        } catch (e) {
+          // try next
+        }
+      }
+      if (!cancelled) setOffline(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let raf;
+    let last = performance.now();
+    const tick = (now) => {
+      const dt = now - last;
+      last = now;
+      if (autoRef.current) {
+        rotRef.current[0] = (rotRef.current[0] + 0.008 * dt) % 360;
+      } else if (now - lastInteractRef.current > 2500) {
+        autoRef.current = true;
+      }
+      bump((v) => (v + 1) & 0xffff);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const drag = useRef({ active: false, captured: false, downX: 0, downY: 0, start: null, moved: 0 });
+
+  const onPointerDown = useCallback((e) => {
+    drag.current.active = true;
+    drag.current.captured = false;
+    drag.current.downX = e.clientX;
+    drag.current.downY = e.clientY;
+    drag.current.start = [...rotRef.current];
+    drag.current.moved = 0;
+    autoRef.current = false;
+  }, []);
+
+  const onPointerMove = useCallback((e) => {
+    if (!drag.current.active) return;
+    const dx = e.clientX - drag.current.downX;
+    const dy = e.clientY - drag.current.downY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > drag.current.moved) drag.current.moved = dist;
+    if (!drag.current.captured && dist > 3) {
+      drag.current.captured = true;
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch (_) {}
+    }
+    if (!drag.current.captured) return;
+    const rectW = e.currentTarget.getBoundingClientRect().width;
+    const sens = 360 / rectW;
+    rotRef.current[0] = drag.current.start[0] + dx * sens;
+    rotRef.current[1] = Math.max(-85, Math.min(85, drag.current.start[1] - dy * sens));
+  }, []);
+
+  const onPointerUp = useCallback((e) => {
+    const wasDragging = drag.current.captured;
+    drag.current.active = false;
+    drag.current.captured = false;
+    if (wasDragging) {
+      lastInteractRef.current = performance.now();
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch (_) {}
+    } else {
+      // click without drag — let it resume soon
+      lastInteractRef.current = performance.now();
+    }
+  }, []);
+
+  projection.rotate(rotRef.current);
+  const pathGen = d3.geoPath(projection);
+  const center = [-rotRef.current[0], -rotRef.current[1]];
+
+  return (
+    <div className="globe-wrap">
+      <svg
+        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onPointerLeave={onPointerUp}
+      >
+        {/* whirl rings */}
+        <g style={{ transformOrigin: `${CX}px ${CY}px` }} className="ring ring-1">
+          <circle
+            cx={CX}
+            cy={CY}
+            r={R + 20}
+            fill="none"
+            stroke={PALETTE.ink}
+            strokeWidth="0.6"
+            strokeDasharray="1 14"
+            strokeOpacity="0.5"
+          />
+        </g>
+        <g style={{ transformOrigin: `${CX}px ${CY}px` }} className="ring ring-2">
+          <circle
+            cx={CX}
+            cy={CY}
+            r={R + 42}
+            fill="none"
+            stroke={PALETTE.ink}
+            strokeWidth="0.6"
+            strokeDasharray="8 6"
+            strokeOpacity="0.4"
+          />
+        </g>
+        <g style={{ transformOrigin: `${CX}px ${CY}px` }} className="ring ring-3">
+          <circle
+            cx={CX}
+            cy={CY}
+            r={R + 64}
+            fill="none"
+            stroke={PALETTE.ink}
+            strokeWidth="0.5"
+            strokeDasharray="2 22"
+            strokeOpacity="0.4"
+          />
+        </g>
+        <g style={{ transformOrigin: `${CX}px ${CY}px` }} className="ring ring-4">
+          <circle
+            cx={CX}
+            cy={CY}
+            r={R + 90}
+            fill="none"
+            stroke={PALETTE.ink}
+            strokeWidth="0.5"
+            strokeDasharray="1 60"
+            strokeOpacity="0.35"
+          />
+        </g>
+
+        {/* corner ticks */}
+        {(() => {
+          const TR = R + 90;
+          const TL = 12;
+          return (
+            <g stroke={PALETTE.ink} strokeWidth="0.8">
+              <line x1={CX} y1={CY - TR - 4} x2={CX} y2={CY - TR - 4 - TL} />
+              <line x1={CX} y1={CY + TR + 4} x2={CX} y2={CY + TR + 4 + TL} />
+              <line x1={CX - TR - 4} y1={CY} x2={CX - TR - 4 - TL} y2={CY} />
+              <line x1={CX + TR + 4} y1={CY} x2={CX + TR + 4 + TL} y2={CY} />
+            </g>
+          );
+        })()}
+
+        {/* globe disc */}
+        <circle cx={CX} cy={CY} r={R} fill={PALETTE.bg} stroke={PALETTE.ink} strokeWidth="0.8" />
+
+        {/* graticule */}
+        <path
+          d={pathGen(graticule)}
+          fill="none"
+          stroke={PALETTE.ink}
+          strokeOpacity="0.08"
+          strokeWidth="0.5"
+        />
+
+        {/* countries */}
+        {countries && (
+          <path
+            d={pathGen(countries)}
+            fill="none"
+            stroke={PALETTE.ink}
+            strokeWidth="0.5"
+            strokeLinejoin="round"
+          />
+        )}
+
+        {/* posts */}
+        {posts.map((p) => {
+          const coord = [p.lng, p.lat];
+          const dist = d3.geoDistance(coord, center);
+          if (dist > Math.PI / 2 - 0.04) return null;
+          const xy = projection(coord);
+          if (!xy || Number.isNaN(xy[0])) return null;
+          const [x, y] = xy;
+          const live = p.hrs < 1 || p.own;
+          const accent = PALETTE.accent;
+          const depth = 1 - dist / (Math.PI / 2);
+          const opacity = 0.55 + 0.45 * depth;
+          const sz = p.own ? 10 : 8;
+          return (
+            <g
+              key={p.id}
+              transform={`translate(${x}, ${y})`}
+              opacity={opacity}
+              onClick={(e) => {
+                if (drag.current.moved > 3) return;
+                e.stopPropagation();
+                onPick(p);
+              }}
+              onPointerEnter={() => setHovered(p)}
+              onPointerLeave={() => setHovered((h) => (h && h.id === p.id ? null : h))}
+              style={{ cursor: 'pointer' }}
+            >
+              <circle r={12} fill="transparent" />
+              {p.own && (
+                <rect
+                  x={-sz / 2 - 2}
+                  y={-sz / 2 - 2}
+                  width={sz + 4}
+                  height={sz + 4}
+                  fill="none"
+                  stroke={accent}
+                  strokeWidth="0.8"
+                />
+              )}
+              <CoverGlyphInline artist={p.artistName} track={p.trackName} x={-sz / 2} y={-sz / 2} size={sz} />
+              {live && (
+                <circle
+                  className="pulse-ring"
+                  cx="0"
+                  cy="0"
+                  fill="none"
+                  stroke={accent}
+                  strokeWidth="1"
+                />
+              )}
+            </g>
+          );
+        })}
+
+        {/* hover tooltip */}
+        {hovered && (() => {
+          const dist = d3.geoDistance([hovered.lng, hovered.lat], center);
+          if (dist > Math.PI / 2 - 0.04) return null;
+          const xy = projection([hovered.lng, hovered.lat]);
+          if (!xy || Number.isNaN(xy[0])) return null;
+          const [hx, hy] = xy;
+          const track = hovered.trackName || '—';
+          const artist = hovered.artistName || '';
+          const meta = `${hovered.city} / ${hovered.hood}`;
+          const maxLen = Math.max(track.length, artist.length, meta.length);
+          const w = Math.min(220, Math.max(90, 12 + maxLen * 6));
+          // flip tooltip to left if near right edge
+          const flip = hx + w + 20 > SIZE;
+          const tx = flip ? hx - w - 12 : hx + 12;
+          const ty = hy - 36;
+          return (
+            <g transform={`translate(${tx}, ${ty})`} style={{ pointerEvents: 'none' }}>
+              <rect x="0" y="0" width={w} height="44" fill={PALETTE.bg} stroke={PALETTE.ink} strokeWidth="0.6" />
+              <text x="8" y="14" fontSize="10" fontFamily="'IBM Plex Sans'" fontWeight="400" fill={PALETTE.ink}>
+                {track.length > 34 ? track.slice(0, 33) + '…' : track}
+              </text>
+              <text x="8" y="26" fontSize="9" fontFamily="'IBM Plex Sans'" fontWeight="300" fill={PALETTE.mute}>
+                {artist.length > 34 ? artist.slice(0, 33) + '…' : artist}
+              </text>
+              <text x="8" y="38" fontSize="8" fontFamily="'IBM Plex Mono'" letterSpacing="0.6" fill={PALETTE.mute}>
+                {meta}
+              </text>
+            </g>
+          );
+        })()}
+
+        {offline && (
+          <text
+            x={CX}
+            y={CY}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontFamily="IBM Plex Mono"
+            fontSize="11"
+            letterSpacing="2"
+            fill={PALETTE.mute}
+          >
+            [ OFFLINE — OUTLINES UNAVAILABLE ]
+          </text>
+        )}
+      </svg>
+    </div>
+  );
+}
+
+// ---------- neighborhood ----------
+function Hood({ post, onBack }) {
+  // seed from post id for reproducibility
+  const seed = useMemo(() => {
+    let s = 0;
+    const str = String(post.id);
+    for (let i = 0; i < str.length; i++) s = (s * 31 + str.charCodeAt(i)) >>> 0;
+    return s;
+  }, [post.id]);
+
+  const neighbors = useMemo(() => {
+    const out = [];
+    let s = seed;
+    const next = () => {
+      s = (s * 1664525 + 1013904223) >>> 0;
+      return s / 0xffffffff;
+    };
+    const n = 6 + Math.floor(next() * 3);
+    for (let i = 0; i < n; i++) {
+      const r = 40 + next() * 180;
+      const a = next() * Math.PI * 2;
+      out.push({ x: 200 + Math.cos(a) * r, y: 200 + Math.sin(a) * r });
+    }
+    return out;
+  }, [seed]);
+
+  const live = post.hrs < 1 || post.own;
+
+  const fmtLat = `${Math.abs(post.lat).toFixed(3)}°${post.lat >= 0 ? 'N' : 'S'}`;
+  const fmtLng = `${Math.abs(post.lng).toFixed(3)}°${post.lng >= 0 ? 'E' : 'W'}`;
+
+  return (
+    <div className="hood">
+      <div className="hood-canvas">
+        <svg viewBox="0 0 400 400">
+          {/* grid 24x24 */}
+          <g stroke={PALETTE.hairline} strokeOpacity="0.6" strokeWidth="0.4">
+            {Array.from({ length: 25 }).map((_, i) => (
+              <line key={`v${i}`} x1={(i * 400) / 24} y1="0" x2={(i * 400) / 24} y2="400" />
+            ))}
+            {Array.from({ length: 25 }).map((_, i) => (
+              <line key={`h${i}`} x1="0" y1={(i * 400) / 24} x2="400" y2={(i * 400) / 24} />
+            ))}
+          </g>
+          {/* contour rings */}
+          {[40, 75, 115, 160, 210, 265].map((r, i) => (
+            <circle
+              key={r}
+              cx="200"
+              cy="200"
+              r={r}
+              fill="none"
+              stroke={PALETTE.ink}
+              strokeWidth="0.5"
+              strokeOpacity={0.6 - i * 0.08}
+            />
+          ))}
+          {/* neighbor dots */}
+          {neighbors.map((n, i) => (
+            <rect
+              key={i}
+              x={n.x - 1.5}
+              y={n.y - 1.5}
+              width="3"
+              height="3"
+              fill={PALETTE.ink}
+              fillOpacity="0.3"
+            />
+          ))}
+          {/* corner L-brackets */}
+          <g stroke={PALETTE.ink} strokeWidth="1" fill="none">
+            <path d="M20 8 L8 8 L8 20" />
+            <path d="M380 8 L392 8 L392 20" />
+            <path d="M20 392 L8 392 L8 380" />
+            <path d="M380 392 L392 392 L392 380" />
+          </g>
+          {/* center orbit rings */}
+          <circle cx="200" cy="200" r="70" fill="none" stroke={PALETTE.ink} strokeWidth="0.4" strokeOpacity="0.18" strokeDasharray="2 4" />
+          <circle cx="200" cy="200" r="96" fill="none" stroke={PALETTE.ink} strokeWidth="0.4" strokeOpacity="0.12" strokeDasharray="1 6" />
+          {/* pulse ring */}
+          <circle
+            className="hood-pulse"
+            cx="200"
+            cy="200"
+            fill="none"
+            stroke={live ? PALETTE.accent : PALETTE.ink}
+            strokeWidth="1"
+          />
+          {/* center glyph */}
+          <CoverGlyphInline artist={post.artistName} track={post.trackName} x={170} y={170} size={60} />
+          {/* cross ticks around the cover */}
+          <g stroke={PALETTE.ink} strokeWidth="0.6">
+            <line x1="200" y1="154" x2="200" y2="148" />
+            <line x1="200" y1="252" x2="200" y2="246" />
+            <line x1="154" y1="200" x2="148" y2="200" />
+            <line x1="252" y1="200" x2="246" y2="200" />
+          </g>
+          {/* label */}
+          <text
+            x="14"
+            y="384"
+            fontFamily="IBM Plex Mono"
+            fontSize="9"
+            fill={PALETTE.mute}
+            letterSpacing="1.2"
+          >
+            {`${fmtLat} / ${fmtLng} · ${post.city} / ${post.hood}`}
+          </text>
+        </svg>
+      </div>
+
+      <div className="post-card">
+        <div className="now-playing">
+          <span>[ NOW PLAYING ]</span>
+          <span>{formatHrs(post.hrs)}</span>
+        </div>
+        <div className="post-glyph">
+          <CoverGlyph artist={post.artistName} track={post.trackName} size={200} />
+        </div>
+        <h1 className="post-track">{post.trackName}</h1>
+        <p className="post-artist">{post.artistName}</p>
+        <div className="post-handle">
+          {post.handle} · {post.city} / {post.hood}
+        </div>
+        <p className="post-vibe" key={post.id}>
+          <SplitText text={post.vibeNote} />
+        </p>
+        <button className="btn play-btn" type="button">
+          [ PLAY ON {post.service} ]
+        </button>
+        <button className="back-link" type="button" onClick={onBack}>
+          ← BACK TO GLOBE
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------- compose modal ----------
+function Compose({ onClose, onSubmit }) {
+  const [link, setLink] = useState('');
+  const [track, setTrack] = useState('');
+  const [artist, setArtist] = useState('');
+  const [vibe, setVibe] = useState('');
+
+  const service = serviceFromLink(link);
+  const showPreview = link.trim().length > 0;
+  const canPost = link.trim().length > 0;
+
+  const submit = () => {
+    if (!canPost) return;
+    onSubmit({
+      link: link.trim(),
+      track: track.trim(),
+      artist: artist.trim(),
+      vibe: vibe.trim(),
+      service,
+    });
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <span>[ NEW POST ]</span>
+          <button className="modal-close" onClick={onClose} aria-label="Close">
+            ×
+          </button>
+        </div>
+
+        <div className="modal-row">PINNED TO · SENGKANG, SINGAPORE</div>
+        <div className="modal-row mute">LOCATION FUZZED TO ~500M GRID</div>
+
+        <input
+          className="modal-input"
+          placeholder="PASTE SPOTIFY / APPLE MUSIC / YOUTUBE LINK"
+          value={link}
+          onChange={(e) => setLink(e.target.value)}
+        />
+        <div className="modal-meta">LINK METADATA WILL BE RESOLVED VIA OEMBED — V1</div>
+
+        <div className="modal-preview">
+          <div className="modal-preview-glyph">
+            {showPreview ? (
+              <CoverGlyph artist={artist || 'unknown'} track={track || link} size={120} />
+            ) : (
+              <div className="glyph-placeholder">[ COVER ]</div>
+            )}
+          </div>
+          <div className="modal-preview-inputs">
+            <input
+              className="modal-input"
+              placeholder="TRACK NAME"
+              value={track}
+              onChange={(e) => setTrack(e.target.value)}
+            />
+            <input
+              className="modal-input"
+              placeholder="ARTIST"
+              value={artist}
+              onChange={(e) => setArtist(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <textarea
+          className="modal-textarea"
+          placeholder="ONE LINE. WHAT DOES THIS SOUND LIKE HERE, RIGHT NOW?"
+          maxLength={80}
+          value={vibe}
+          onChange={(e) => setVibe(e.target.value)}
+        />
+
+        <div className="modal-footer">
+          <span className="char-count">{80 - vibe.length} / 80</span>
+          <div className="modal-actions">
+            <button className="btn btn-ghost" onClick={onClose}>
+              [ CANCEL ]
+            </button>
+            <button className="btn" onClick={submit} disabled={!canPost}>
+              [ POST ]
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- header ----------
+function Header({ total, live }) {
+  const t = String(total).padStart(3, '0');
+  const l = String(live).padStart(2, '0');
+  return (
+    <header className="header">
+      <div className="header-left">
+        <span className="wordmark">
+          <span className="bracket">[ </span>
+          <DecryptedText text="GLOBE" />
+          <span className="bracket"> ]</span>
+        </span>
+        <span className="sub">— UNNAMED · V0</span>
+      </div>
+      <div className="counter">
+        <span>
+          {t} PLAYS · {l} LIVE
+        </span>
+        {live > 0 && <span className="live-dot" />}
+      </div>
+    </header>
+  );
+}
+
+// ---------- footer ----------
+function Footer({ view, onCompose }) {
+  const hint =
+    view === 'globe'
+      ? 'DRAG TO ROTATE · TAP A DOT TO HEAR WHAT\u2019S PLAYING'
+      : 'ONE TRACK IN THIS NEIGHBOURHOOD · MORE NEARBY';
+  return (
+    <footer className="footer">
+      <span>{hint}</span>
+      <button className="btn" onClick={onCompose}>
+        {'[ + SHARE WHAT YOU\u2019RE PLAYING ]'}
+      </button>
+    </footer>
+  );
+}
+
+// ---------- root ----------
+export default function App() {
+  const [view, setView] = useState('globe');
+  const [selected, setSelected] = useState(null);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [extra, setExtra] = useState([]);
+
+  const posts = useMemo(() => [...MOCK_POSTS, ...extra], [extra]);
+  const live = useMemo(() => posts.filter((p) => p.hrs < 1 || p.own).length, [posts]);
+
+  const pick = (p) => {
+    setSelected(p);
+    setView('hood');
+  };
+
+  const submit = (data) => {
+    const p = {
+      id: Date.now(),
+      handle: '@you',
+      lat: 1.35,
+      lng: 103.82,
+      city: 'SINGAPORE',
+      hood: 'SENGKANG',
+      trackName: data.track || '(UNTITLED)',
+      artistName: data.artist || '(UNKNOWN ARTIST)',
+      service: data.service,
+      vibeNote: data.vibe || 'posted from here, right now.',
+      link: data.link,
+      hrs: 0,
+      own: true,
+    };
+    setExtra((prev) => [...prev, p]);
+    setComposeOpen(false);
+    setSelected(p);
+    setView('hood');
+  };
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (composeOpen) setComposeOpen(false);
+      else if (view === 'hood') setView('globe');
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [composeOpen, view]);
+
+  return (
+    <>
+      <style>{STYLES}</style>
+      <Noise />
+      <div className="app">
+        <Header total={posts.length} live={live} />
+        <main className="main">
+          {view === 'globe' ? (
+            <Globe posts={posts} onPick={pick} />
+          ) : (
+            selected && <Hood post={selected} onBack={() => setView('globe')} />
+          )}
+          {/* decorative marks */}
+          <span className="mark mark-plus">+</span>
+          <span className="mark mark-dot">·</span>
+        </main>
+        <Footer
+          view={view}
+          onCompose={() => setComposeOpen(true)}
+        />
+      </div>
+      {composeOpen && <Compose onClose={() => setComposeOpen(false)} onSubmit={submit} />}
+    </>
+  );
+}
+
+const STYLES = `
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,100;0,200;0,300;0,400;1,300&display=swap');
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; padding: 0; }
+body {
+  background: ${PALETTE.bg};
+  color: ${PALETTE.ink};
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.noise {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+.app {
+  position: relative;
+  z-index: 1;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+/* header */
+.header {
+  padding: 16px 28px 18px 28px;
+  border-bottom: 1px solid ${PALETTE.hairline};
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  font-weight: 400;
+}
+.header-left { display: flex; gap: 10px; align-items: baseline; }
+.wordmark { font-weight: 500; color: ${PALETTE.ink}; letter-spacing: 0.12em; }
+.bracket { color: ${PALETTE.mute}; font-weight: 400; }
+.sub { color: ${PALETTE.mute}; font-weight: 400; }
+.counter { color: ${PALETTE.ink}; display: flex; align-items: center; gap: 10px; }
+.live-dot {
+  width: 6px; height: 6px; background: ${PALETTE.accent};
+  display: inline-block;
+  animation: blink 1.6s steps(1) infinite;
+}
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* main */
+.main {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px 24px;
+  overflow: hidden;
+}
+
+/* globe */
+.globe-wrap {
+  width: 100%;
+  max-width: 720px;
+  aspect-ratio: 1;
+  touch-action: none;
+  position: relative;
+}
+.globe-wrap svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.ring {
+  transform-origin: center;
+}
+.ring-1 { animation: spinCW 18s linear infinite; }
+.ring-2 { animation: spinCCW 22s linear infinite; }
+.ring-3 { animation: spinCW 44s linear infinite; }
+.ring-4 { animation: spinCCW 70s linear infinite; }
+@keyframes spinCW { to { transform: rotate(360deg); } }
+@keyframes spinCCW { to { transform: rotate(-360deg); } }
+
+.pulse-ring {
+  animation: pulseRing 2.4s ease-out infinite;
+}
+@keyframes pulseRing {
+  0% { r: 3px; opacity: 0.9; }
+  100% { r: 16px; opacity: 0; }
+}
+
+/* decorative marks */
+.mark {
+  position: absolute;
+  color: ${PALETTE.ink};
+  opacity: 0.25;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 18px;
+  pointer-events: none;
+  user-select: none;
+}
+.mark-plus { top: 12%; right: 10%; }
+.mark-dot { bottom: 14%; left: 8%; font-size: 26px; }
+@media (max-width: 760px) {
+  .mark { display: none; }
+}
+
+/* footer */
+.footer {
+  padding: 16px 28px 18px 28px;
+  border-top: 1px solid ${PALETTE.hairline};
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: ${PALETTE.mute};
+  gap: 16px;
+}
+.footer > span { flex: 1; }
+
+/* buttons */
+.btn {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 500;
+  border: none;
+  border-radius: 0;
+  background: ${PALETTE.ink};
+  color: ${PALETTE.bg};
+  padding: 11px 16px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.btn:hover { color: ${PALETTE.accent}; }
+.btn-ghost {
+  background: transparent;
+  color: ${PALETTE.ink};
+  border: 1px solid ${PALETTE.hairline};
+}
+.btn-ghost:hover { color: ${PALETTE.accent}; border-color: ${PALETTE.ink}; }
+.btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.btn:disabled:hover { color: ${PALETTE.bg}; }
+
+/* hood */
+.hood {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 48px;
+  padding: 16px 24px;
+  max-width: 1100px;
+  width: 100%;
+  align-items: center;
+}
+.hood-canvas {
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: 480px;
+  justify-self: center;
+}
+.hood-canvas svg { width: 100%; height: 100%; display: block; }
+.hood-pulse {
+  animation: pulseRing 2.4s ease-out infinite;
+  transform-origin: 200px 200px;
+}
+.post-card {
+  display: flex;
+  flex-direction: column;
+  max-width: 440px;
+  justify-self: start;
+}
+.now-playing {
+  display: flex;
+  justify-content: space-between;
+  color: ${PALETTE.mute};
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  margin-bottom: 22px;
+}
+.post-glyph {
+  width: 200px;
+  height: 200px;
+  margin-bottom: 26px;
+  border: 1px solid ${PALETTE.hairline};
+}
+.post-track {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-weight: 200;
+  font-size: 28px;
+  color: ${PALETTE.ink};
+  text-transform: none;
+  letter-spacing: -0.01em;
+  line-height: 1.12;
+  margin: 0 0 4px 0;
+}
+.post-artist {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  color: ${PALETTE.mute};
+  text-transform: none;
+  letter-spacing: 0;
+  margin: 0 0 14px 0;
+}
+.post-handle {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: ${PALETTE.mute};
+  letter-spacing: 0.12em;
+  margin-bottom: 16px;
+}
+.post-vibe {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-weight: 300;
+  font-size: 16px;
+  color: ${PALETTE.ink};
+  text-transform: none;
+  font-style: italic;
+  line-height: 1.45;
+  letter-spacing: 0;
+  margin: 14px 0 28px 0;
+}
+.play-btn { align-self: flex-start; margin-bottom: 22px; }
+.back-link {
+  background: none; border: none;
+  color: ${PALETTE.ink};
+  cursor: pointer;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0;
+  text-align: left;
+  align-self: flex-start;
+}
+.back-link:hover { color: ${PALETTE.accent}; }
+
+@media (max-width: 760px) {
+  .hood { grid-template-columns: 1fr; gap: 28px; padding: 16px; }
+  .hood-canvas { max-width: 320px; }
+  .post-card { max-width: 100%; }
+}
+
+/* modal */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(10, 10, 10, 0.75);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  padding: 24px;
+}
+.modal {
+  background: ${PALETTE.bg};
+  border: 1px solid ${PALETTE.ink};
+  width: 100%;
+  max-width: 520px;
+  padding: 22px 24px;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid ${PALETTE.hairline};
+  margin-bottom: 16px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+.modal-close {
+  background: none; border: none;
+  cursor: pointer;
+  font-size: 18px;
+  font-family: 'IBM Plex Mono', monospace;
+  color: ${PALETTE.ink};
+  padding: 0; line-height: 1;
+}
+.modal-close:hover { color: ${PALETTE.accent}; }
+.modal-row {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: ${PALETTE.ink};
+  margin-bottom: 4px;
+}
+.modal-row.mute { color: ${PALETTE.mute}; margin-bottom: 14px; }
+.modal-input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid ${PALETTE.hairline};
+  padding: 10px 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-radius: 0;
+  color: ${PALETTE.ink};
+  margin-bottom: 6px;
+}
+.modal-input:focus { outline: none; border-color: ${PALETTE.ink}; }
+.modal-input::placeholder { color: ${PALETTE.mute}; }
+.modal-meta {
+  font-size: 9px;
+  color: ${PALETTE.mute};
+  letter-spacing: 0.12em;
+  margin: 4px 0 16px 0;
+}
+.modal-preview {
+  display: flex;
+  gap: 16px;
+  padding: 4px 0 12px 0;
+  align-items: flex-start;
+}
+.modal-preview-glyph {
+  width: 120px; height: 120px;
+  flex-shrink: 0;
+  border: 1px solid ${PALETTE.hairline};
+}
+.modal-preview-inputs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.glyph-placeholder {
+  width: 100%; height: 100%;
+  display: flex; justify-content: center; align-items: center;
+  color: ${PALETTE.mute};
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+.modal-textarea {
+  width: 100%;
+  background: transparent;
+  border: 1px solid ${PALETTE.hairline};
+  padding: 10px 12px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-weight: 300;
+  font-size: 14px;
+  font-style: italic;
+  border-radius: 0;
+  color: ${PALETTE.ink};
+  resize: none;
+  min-height: 70px;
+  text-transform: none;
+  letter-spacing: 0;
+  margin: 6px 0 4px 0;
+  line-height: 1.5;
+}
+.modal-textarea:focus { outline: none; border-color: ${PALETTE.ink}; }
+.modal-textarea::placeholder {
+  color: ${PALETTE.mute};
+  font-family: 'IBM Plex Mono', monospace;
+  font-style: normal;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid ${PALETTE.hairline};
+  margin-top: 12px;
+}
+.char-count {
+  font-size: 10px;
+  color: ${PALETTE.mute};
+  letter-spacing: 0.12em;
+}
+.modal-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* split text */
+.split-container { display: inline; }
+.split-word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(4px);
+  animation: splitIn 180ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  white-space: pre;
+}
+@keyframes splitIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 520px) {
+  .header, .footer { padding-left: 16px; padding-right: 16px; }
+  .header-left { gap: 6px; font-size: 10px; }
+  .sub { display: none; }
+  .footer { flex-direction: column; gap: 12px; align-items: stretch; }
+  .footer .btn { width: 100%; text-align: center; }
+}
+`;
