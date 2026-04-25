@@ -441,7 +441,10 @@ function Globe({ posts, onPick }) {
   const SIZE = 640;
   const CX = SIZE / 2;
   const CY = SIZE / 2;
-  const R = 185;
+  const R0 = 185;
+  const ZOOM_MIN = 0.7;
+  const ZOOM_MAX = 3.0;
+  const ZOOM_STEP = 0.22;
 
   const rotRef = useRef([30, -12, 0]);
   const autoRef = useRef(true);
@@ -451,6 +454,17 @@ function Globe({ posts, onPick }) {
   const [offline, setOffline] = useState(false);
   const [hovered, setHovered] = useState(null);
   const [hoveredCountry, setHoveredCountry] = useState(null);
+  const [zoom, setZoom] = useState(1);
+  const svgRef = useRef(null);
+  const pointersRef = useRef(new Map()); // pointerId -> {x,y}
+  const pinchRef = useRef(null); // {startDist, startZoom}
+
+  const R = R0 * zoom;
+  const clampZoom = (z) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+  const markInteract = () => {
+    autoRef.current = false;
+    lastInteractRef.current = performance.now();
+  };
 
   const graticule = useMemo(() => d3.geoGraticule10(), []);
   const projection = useMemo(
@@ -511,6 +525,18 @@ function Globe({ posts, onPick }) {
   const drag = useRef({ active: false, captured: false, downX: 0, downY: 0, start: null, moved: 0 });
 
   const onPointerDown = useCallback((e) => {
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointersRef.current.size === 2) {
+      // begin pinch
+      const pts = Array.from(pointersRef.current.values());
+      const dx = pts[0].x - pts[1].x;
+      const dy = pts[0].y - pts[1].y;
+      pinchRef.current = { startDist: Math.hypot(dx, dy), startZoom: zoom };
+      drag.current.active = false;
+      drag.current.captured = false;
+      markInteract();
+      return;
+    }
     drag.current.active = true;
     drag.current.captured = false;
     drag.current.downX = e.clientX;
@@ -520,9 +546,22 @@ function Globe({ posts, onPick }) {
     autoRef.current = false;
     setHoveredCountry(null);
     setHovered(null);
-  }, []);
+  }, [zoom]);
 
   const onPointerMove = useCallback((e) => {
+    if (pointersRef.current.has(e.pointerId)) {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    if (pinchRef.current && pointersRef.current.size >= 2) {
+      const pts = Array.from(pointersRef.current.values()).slice(0, 2);
+      const dx = pts[0].x - pts[1].x;
+      const dy = pts[0].y - pts[1].y;
+      const dist = Math.hypot(dx, dy);
+      const factor = dist / pinchRef.current.startDist;
+      setZoom(clampZoom(pinchRef.current.startZoom * factor));
+      lastInteractRef.current = performance.now();
+      return;
+    }
     if (!drag.current.active) return;
     const dx = e.clientX - drag.current.downX;
     const dy = e.clientY - drag.current.downY;
@@ -536,12 +575,18 @@ function Globe({ posts, onPick }) {
     }
     if (!drag.current.captured) return;
     const rectW = e.currentTarget.getBoundingClientRect().width;
-    const sens = 360 / rectW;
+    // sensitivity scales inversely with zoom — at higher zoom, smaller drags feel right
+    const sens = (360 / rectW) / Math.max(0.6, zoom);
     rotRef.current[0] = drag.current.start[0] + dx * sens;
     rotRef.current[1] = Math.max(-85, Math.min(85, drag.current.start[1] - dy * sens));
-  }, []);
+  }, [zoom]);
 
   const onPointerUp = useCallback((e) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2 && pinchRef.current) {
+      pinchRef.current = null;
+      lastInteractRef.current = performance.now();
+    }
     const wasDragging = drag.current.captured;
     drag.current.active = false;
     drag.current.captured = false;
@@ -551,10 +596,53 @@ function Globe({ posts, onPick }) {
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch (_) {}
     } else {
-      // click without drag — let it resume soon
       lastInteractRef.current = performance.now();
     }
   }, []);
+
+  // wheel zoom — non-passive so we can preventDefault and not scroll the page
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      e.preventDefault();
+      // normalize delta across browsers/trackpads
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      const factor = Math.exp(-dy * 0.0018);
+      setZoom((z) => clampZoom(z * factor));
+      markInteract();
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
+  // keyboard shortcuts: +/= zoom in, - zoom out, 0 reset
+  useEffect(() => {
+    const onKey = (e) => {
+      const t = e.target;
+      const tag = t && t.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (t && t.isContentEditable)) return;
+      if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        setZoom((z) => clampZoom(z + ZOOM_STEP));
+        markInteract();
+      } else if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        setZoom((z) => clampZoom(z - ZOOM_STEP));
+        markInteract();
+      } else if (e.key === '0') {
+        e.preventDefault();
+        setZoom(1);
+        markInteract();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
+  const zoomIn = () => { setZoom((z) => clampZoom(z + ZOOM_STEP)); markInteract(); };
+  const zoomOut = () => { setZoom((z) => clampZoom(z - ZOOM_STEP)); markInteract(); };
+  const zoomReset = () => { setZoom(1); markInteract(); };
 
   projection.rotate(rotRef.current);
   const pathGen = d3.geoPath(projection);
@@ -563,19 +651,21 @@ function Globe({ posts, onPick }) {
   return (
     <div className="globe-wrap">
       <svg
+        ref={svgRef}
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         onPointerLeave={onPointerUp}
+        style={{ touchAction: 'none' }}
       >
-        {/* whirl rings */}
+        {/* whirl rings — anchored to baseline radius so they don't blow out at high zoom */}
         <g style={{ transformOrigin: `${CX}px ${CY}px` }} className="ring ring-1">
           <circle
             cx={CX}
             cy={CY}
-            r={R + 20}
+            r={R0 + 20}
             fill="none"
             stroke={PALETTE.ink}
             strokeWidth="0.6"
@@ -587,7 +677,7 @@ function Globe({ posts, onPick }) {
           <circle
             cx={CX}
             cy={CY}
-            r={R + 42}
+            r={R0 + 42}
             fill="none"
             stroke={PALETTE.ink}
             strokeWidth="0.6"
@@ -599,7 +689,7 @@ function Globe({ posts, onPick }) {
           <circle
             cx={CX}
             cy={CY}
-            r={R + 64}
+            r={R0 + 64}
             fill="none"
             stroke={PALETTE.ink}
             strokeWidth="0.5"
@@ -611,7 +701,7 @@ function Globe({ posts, onPick }) {
           <circle
             cx={CX}
             cy={CY}
-            r={R + 90}
+            r={R0 + 90}
             fill="none"
             stroke={PALETTE.ink}
             strokeWidth="0.5"
@@ -622,7 +712,7 @@ function Globe({ posts, onPick }) {
 
         {/* corner ticks */}
         {(() => {
-          const TR = R + 90;
+          const TR = R0 + 90;
           const TL = 12;
           return (
             <g stroke={PALETTE.ink} strokeWidth="0.8">
@@ -817,6 +907,31 @@ function Globe({ posts, onPick }) {
           </text>
         )}
       </svg>
+      <div className="zoom-rail" aria-label="Zoom controls">
+        <button
+          type="button"
+          className="zoom-btn"
+          onClick={zoomIn}
+          disabled={zoom >= ZOOM_MAX - 0.001}
+          title="Zoom in (+)"
+          aria-label="Zoom in"
+        >+</button>
+        <button
+          type="button"
+          className="zoom-readout"
+          onClick={zoomReset}
+          title="Reset zoom (0)"
+          aria-label="Reset zoom"
+        >× {zoom.toFixed(zoom < 1 ? 2 : 1)}</button>
+        <button
+          type="button"
+          className="zoom-btn"
+          onClick={zoomOut}
+          disabled={zoom <= ZOOM_MIN + 0.001}
+          title="Zoom out (−)"
+          aria-label="Zoom out"
+        >−</button>
+      </div>
     </div>
   );
 }
@@ -1791,6 +1906,63 @@ body {
   aspect-ratio: 1;
   touch-action: none;
   position: relative;
+}
+.zoom-rail {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+  user-select: none;
+  z-index: 2;
+}
+.zoom-rail button {
+  font-family: 'IBM Plex Mono', monospace;
+  letter-spacing: 0.06em;
+  background: ${PALETTE.bg};
+  border: 1px solid ${PALETTE.hairline};
+  color: ${PALETTE.ink};
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.12s, background 0.12s, border-color 0.12s, transform 0.12s;
+  border-radius: 0;
+}
+.zoom-rail button:hover:not(:disabled) {
+  background: ${PALETTE.ink};
+  color: ${PALETTE.bg};
+  border-color: ${PALETTE.ink};
+}
+.zoom-rail button:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+.zoom-rail .zoom-btn {
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 500;
+}
+.zoom-rail .zoom-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.zoom-rail .zoom-readout {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 0;
+  color: ${PALETTE.mute};
+  text-align: center;
+  border-color: transparent;
+  background: transparent;
+}
+.zoom-rail .zoom-readout:hover {
+  color: ${PALETTE.bg};
+  background: ${PALETTE.ink};
+  border-color: ${PALETTE.ink};
 }
 .globe-wrap svg {
   display: block;
