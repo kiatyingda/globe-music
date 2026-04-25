@@ -300,6 +300,21 @@ const MOCK_POSTS = [
   { id: 41, handle: '@yongkang_alley', lat: 25.0330, lng: 121.5294, city: 'TAIPEI', hood: 'YONGKANG', trackName: '小情歌', artistName: 'Sodagreen', service: 'YOUTUBE', videoId: 'in8NNzwFa-s', vibeNote: 'narrow alley. coffee steam. 5pm light.', hrs: 0.6 },
   { id: 42, handle: '@xiangshan_haze', lat: 25.0277, lng: 121.5719, city: 'TAIPEI', hood: 'XIANGSHAN', trackName: '無與倫比的美麗', artistName: 'Sodagreen', service: 'YOUTUBE', videoId: 'NA4otP-v6iI', vibeNote: 'elephant mountain. 101 in the haze.', hrs: 16 },
   { id: 43, handle: '@gongguan_rain', lat: 25.0148, lng: 121.5345, city: 'TAIPEI', hood: 'GONGGUAN', trackName: '你在煩惱什麼', artistName: 'Sodagreen', service: 'YOUTUBE', videoId: '-3TmzrEDuJ8', vibeNote: 'bookstore basement. rain outside.', hrs: 33 },
+  // ---- eva cassidy across dc / maryland ----
+  { id: 51, handle: '@blues_alley_room', lat: 38.9046, lng: -77.0617, city: 'WASHINGTON DC', hood: 'GEORGETOWN', trackName: 'Over the Rainbow', artistName: 'Eva Cassidy', service: 'YOUTUBE', videoId: 'wzDgCUdWnQI', vibeNote: 'blues alley, january 1996. the room hushed. she did not know.', hrs: 0.25 },
+  { id: 52, handle: '@autumn_in_dc', lat: 38.8788, lng: -77.0246, city: 'WASHINGTON DC', hood: 'THE WHARF', trackName: 'Autumn Leaves', artistName: 'Eva Cassidy', service: 'YOUTUBE', videoId: 'Gw4tPdnEDfE', vibeNote: 'potomac at dusk. the leaves go quietly.', hrs: 1.2 },
+  { id: 53, handle: '@bowie_porch', lat: 38.9426, lng: -76.7305, city: 'BOWIE', hood: 'OLD TOWN', trackName: 'Fields of Gold', artistName: 'Eva Cassidy', service: 'YOUTUBE', videoId: 'OHmm0K9V6OE', vibeNote: 'maryland summer. wheat in the wind. her voice the only weather.', hrs: 3 },
+  { id: 54, handle: '@adams_morgan_late', lat: 38.9223, lng: -77.0427, city: 'WASHINGTON DC', hood: 'ADAMS MORGAN', trackName: 'Songbird', artistName: 'Eva Cassidy', service: 'YOUTUBE', videoId: 'j04OCqLY3kc', vibeNote: '18th street at 2am. the song stops the conversation.', hrs: 5 },
+  { id: 55, handle: '@severn_bridge', lat: 38.9784, lng: -76.4922, city: 'ANNAPOLIS', hood: 'EASTPORT', trackName: 'Time After Time', artistName: 'Eva Cassidy', service: 'YOUTUBE', videoId: '8MbUWzS7w2Q', vibeNote: 'sailboat halyards. the bay holding still for her.', hrs: 9 },
+  { id: 56, handle: '@anacostia_river', lat: 38.8702, lng: -76.9876, city: 'WASHINGTON DC', hood: 'ANACOSTIA', trackName: 'Bridge Over Troubled Water', artistName: 'Eva Cassidy', service: 'YOUTUBE', videoId: 'rAYbIhVmhdg', vibeNote: 'east of the river. she carries you across.', hrs: 15 },
+  { id: 57, handle: '@fells_point', lat: 39.2826, lng: -76.5926, city: 'BALTIMORE', hood: 'FELLS POINT', trackName: 'Danny Boy', artistName: 'Eva Cassidy', service: 'YOUTUBE', videoId: 'fyYbCIDZrgo', vibeNote: 'cobblestones wet. tugboat answering somewhere.', hrs: 22 },
+  { id: 58, handle: '@u_street_dawn', lat: 38.9079, lng: -77.0319, city: 'WASHINGTON DC', hood: '14TH STREET', trackName: 'What a Wonderful World', artistName: 'Eva Cassidy', service: 'YOUTUBE', videoId: 'V2zfFEQgoZw', vibeNote: 'first light on 14th. she means it. she means it.', hrs: 36 },
+  // ---- long vacation ost · cagnet · tokyo, 1996 ----
+  { id: 61, handle: '@aoyama_piano', lat: 35.6647, lng: 139.7197, city: 'TOKYO', hood: 'AOYAMA', trackName: 'Close to You (セナのピアノ)', artistName: 'Cagnet', service: 'YOUTUBE', videoId: 'pNfwnpcPyXo', vibeNote: 'apartment 401. summer rain. one piano line, on repeat.', hrs: 0.3 },
+  { id: 62, handle: '@setagaya_balcony', lat: 35.6464, lng: 139.6532, city: 'TOKYO', hood: 'SETAGAYA', trackName: 'Long Vacation', artistName: 'Cagnet', service: 'YOUTUBE', videoId: 'WYUgAkAg9LM', vibeNote: 'three months of nothing. the season takes care of it.', hrs: 1.5 },
+  { id: 63, handle: '@daikanyama_curb', lat: 35.6499, lng: 139.7032, city: 'TOKYO', hood: 'DAIKANYAMA', trackName: 'Sobani Iteyo (側にいてよ)', artistName: 'Cagnet', service: 'YOUTUBE', videoId: 'zJcrQSWGlmA', vibeNote: 'asking quietly. not a question.', hrs: 4 },
+  { id: 64, handle: '@shimokita_window', lat: 35.6614, lng: 139.6680, city: 'TOKYO', hood: 'SHIMOKITAZAWA', trackName: 'Silent Emotion', artistName: 'Cagnet', service: 'YOUTUBE', videoId: 'O5ZL5cvZ2t8', vibeNote: 'curtain moving. cicadas in the distance.', hrs: 11 },
+  { id: 65, handle: '@shibuya_after', lat: 35.6580, lng: 139.7016, city: 'TOKYO', hood: 'SHIBUYA', trackName: 'Little by Little', artistName: 'Cagnet', service: 'YOUTUBE', videoId: 'l_qIwQEd4Ts', vibeNote: 'crossing empties at 3am. the city remembers something.', hrs: 19 },
 ];
 
 // ---------- decrypted text ----------
@@ -377,6 +392,28 @@ function serviceFromLink(link) {
   if (s.includes('soundcloud')) return 'SOUNDCLOUD';
   if (s.includes('bandcamp')) return 'BANDCAMP';
   return 'SPOTIFY';
+}
+
+function videoIdFromLink(link) {
+  if (!link) return '';
+  try {
+    const u = new URL(link.trim());
+    const host = u.hostname.replace(/^www\./, '');
+    if (host === 'youtu.be') {
+      return u.pathname.slice(1).split('/')[0] || '';
+    }
+    if (host.endsWith('youtube.com') || host === 'm.youtube.com' || host === 'music.youtube.com') {
+      const v = u.searchParams.get('v');
+      if (v) return v;
+      const parts = u.pathname.split('/').filter(Boolean);
+      if (parts[0] === 'shorts' || parts[0] === 'embed' || parts[0] === 'live') {
+        return parts[1] || '';
+      }
+    }
+  } catch (e) {
+    // not a parseable URL
+  }
+  return '';
 }
 
 function playUrlFor(post) {
@@ -785,7 +822,7 @@ function Globe({ posts, onPick }) {
 }
 
 // ---------- neighborhood ----------
-function Hood({ post, onBack }) {
+function Hood({ post, onBack, onEdit, onDelete }) {
   const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
@@ -1022,6 +1059,27 @@ function Hood({ post, onBack }) {
         >
           {isPlaying ? '[ STOP ]' : `[ PLAY ON ${post.service} ]`}
         </button>
+        {(onEdit || onDelete) && (
+          <div className="post-owner-actions">
+            {onEdit && (
+              <button className="btn btn-ghost" type="button" onClick={onEdit}>
+                [ EDIT ]
+              </button>
+            )}
+            {onDelete && (
+              <button
+                className="btn btn-ghost btn-danger"
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined' && !window.confirm('DELETE THIS POST?')) return;
+                  onDelete();
+                }}
+              >
+                [ DELETE ]
+              </button>
+            )}
+          </div>
+        )}
         <button className="back-link" type="button" onClick={onBack}>
           ← BACK TO GLOBE
         </button>
@@ -1031,13 +1089,14 @@ function Hood({ post, onBack }) {
 }
 
 // ---------- compose modal ----------
-function Compose({ onClose, onSubmit }) {
-  const [link, setLink] = useState('');
-  const [track, setTrack] = useState('');
-  const [artist, setArtist] = useState('');
-  const [vibe, setVibe] = useState('');
+function Compose({ onClose, onSubmit, initial, onDelete }) {
+  const isEdit = !!initial;
+  const [link, setLink] = useState(initial?.link || '');
+  const [track, setTrack] = useState(initial?.trackName || '');
+  const [artist, setArtist] = useState(initial?.artistName || '');
+  const [vibe, setVibe] = useState(initial?.vibeNote || '');
 
-  const service = serviceFromLink(link);
+  const service = serviceFromLink(link) || (isEdit ? initial.service : '');
   const showPreview = link.trim().length > 0;
   const canPost = link.trim().length > 0;
 
@@ -1052,17 +1111,25 @@ function Compose({ onClose, onSubmit }) {
     });
   };
 
+  const remove = () => {
+    if (!isEdit || !onDelete) return;
+    if (typeof window !== 'undefined' && !window.confirm('DELETE THIS POST?')) return;
+    onDelete(initial);
+  };
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <span>[ NEW POST ]</span>
+          <span>{isEdit ? '[ EDIT POST ]' : '[ NEW POST ]'}</span>
           <button className="modal-close" onClick={onClose} aria-label="Close">
             ×
           </button>
         </div>
 
-        <div className="modal-row">PINNED TO · SENGKANG, SINGAPORE</div>
+        <div className="modal-row">
+          PINNED TO · {isEdit ? `${initial.hood}, ${initial.city}` : 'SENGKANG, SINGAPORE'}
+        </div>
         <div className="modal-row mute">LOCATION FUZZED TO ~500M GRID</div>
 
         <input
@@ -1108,11 +1175,16 @@ function Compose({ onClose, onSubmit }) {
         <div className="modal-footer">
           <span className="char-count">{80 - vibe.length} / 80</span>
           <div className="modal-actions">
-            <button className="btn btn-ghost" onClick={onClose}>
+            {isEdit && (
+              <button className="btn btn-ghost btn-danger" onClick={remove} type="button">
+                [ DELETE ]
+              </button>
+            )}
+            <button className="btn btn-ghost" onClick={onClose} type="button">
               [ CANCEL ]
             </button>
-            <button className="btn" onClick={submit} disabled={!canPost}>
-              [ POST ]
+            <button className="btn" onClick={submit} disabled={!canPost} type="button">
+              {isEdit ? '[ SAVE ]' : '[ POST ]'}
             </button>
           </div>
         </div>
@@ -1122,7 +1194,7 @@ function Compose({ onClose, onSubmit }) {
 }
 
 // ---------- header ----------
-function Header({ total, live, mine, onMine }) {
+function Header({ total, live, mine, onMine, onSearch, searchActive }) {
   const t = String(total).padStart(3, '0');
   const l = String(live).padStart(2, '0');
   const m = String(mine).padStart(2, '0');
@@ -1143,6 +1215,15 @@ function Header({ total, live, mine, onMine }) {
         {live > 0 && <span className="live-dot" />}
         <button
           type="button"
+          className={`chip chip-search${searchActive ? ' is-filtered' : ''}`}
+          onClick={onSearch}
+          title="SEARCH ALL POSTS · /"
+        >
+          SEARCH
+          {searchActive && <span className="chip-pip" aria-hidden="true" />}
+        </button>
+        <button
+          type="button"
           className={`chip${mine === 0 ? ' chip-empty' : ''}`}
           onClick={onMine}
           title={mine > 0 ? 'JUMP TO YOUR POSTS' : 'POST SOMETHING'}
@@ -1154,11 +1235,258 @@ function Header({ total, live, mine, onMine }) {
   );
 }
 
+// ---------- search bar ----------
+// ---------- search modal (full-screen index) ----------
+function SearchModal({ posts, onClose, onPick, query, onQuery, serviceFilter, onServiceFilter, liveOnly, onLiveOnly, onClear }) {
+  const services = ['ALL', 'SPOTIFY', 'APPLE MUSIC', 'YOUTUBE'];
+  const inputRef = useRef(null);
+  const listRef = useRef(null);
+  const [highlight, setHighlight] = useState(0);
+
+  const matched = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const out = posts.filter((p) => {
+      if (serviceFilter !== 'ALL' && p.service !== serviceFilter) return false;
+      if (liveOnly && !(p.hrs < 1 || p.own)) return false;
+      if (!q) return true;
+      return (
+        (p.trackName || '').toLowerCase().includes(q) ||
+        (p.artistName || '').toLowerCase().includes(q) ||
+        (p.city || '').toLowerCase().includes(q) ||
+        (p.hood || '').toLowerCase().includes(q) ||
+        (p.handle || '').toLowerCase().includes(q) ||
+        (p.vibeNote || '').toLowerCase().includes(q)
+      );
+    });
+    out.sort((a, b) => (a.hrs || 0) - (b.hrs || 0));
+    return out;
+  }, [posts, query, serviceFilter, liveOnly]);
+
+  const filterActive = query.trim().length > 0 || serviceFilter !== 'ALL' || liveOnly;
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  useEffect(() => {
+    setHighlight(0);
+  }, [query, serviceFilter, liveOnly]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlight((h) => Math.min(h + 1, matched.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlight((h) => Math.max(h - 1, 0));
+      } else if (e.key === 'Enter' && matched[highlight]) {
+        e.preventDefault();
+        onPick(matched[highlight]);
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [matched, highlight, onClose, onPick]);
+
+  // scroll highlighted into view
+  useEffect(() => {
+    const el = listRef.current?.querySelector(`[data-i="${highlight}"]`);
+    if (el && el.scrollIntoView) {
+      el.scrollIntoView({ block: 'nearest' });
+    }
+  }, [highlight]);
+
+  return (
+    <div className="search-modal" onClick={onClose}>
+      <div className="search-panel" onClick={(e) => e.stopPropagation()}>
+        <span className="search-corner search-corner-tl" aria-hidden="true" />
+        <span className="search-corner search-corner-tr" aria-hidden="true" />
+        <span className="search-corner search-corner-bl" aria-hidden="true" />
+        <span className="search-corner search-corner-br" aria-hidden="true" />
+
+        <div className="search-head">
+          <span className="search-title">[ SEARCH · INDEX ]</span>
+          <button className="search-close" onClick={onClose} aria-label="Close">×</button>
+        </div>
+
+        <div className="search-input-wrap">
+          <span className="search-prompt" aria-hidden="true">›</span>
+          <input
+            ref={inputRef}
+            className="search-big-input"
+            placeholder="track, artist, city…"
+            value={query}
+            onChange={(e) => onQuery(e.target.value)}
+            spellCheck={false}
+            autoComplete="off"
+            aria-label="Search"
+          />
+          <span className="search-caret" aria-hidden="true" />
+        </div>
+
+        <div className="search-filters">
+          <span className="search-filters-label">FILTER</span>
+          {services.map((s) => (
+            <button
+              key={s}
+              type="button"
+              className={`filter-chip${serviceFilter === s ? ' is-active' : ''}`}
+              onClick={() => onServiceFilter(s)}
+            >
+              {s}
+            </button>
+          ))}
+          <span className="filter-divider" />
+          <button
+            type="button"
+            className={`filter-chip${liveOnly ? ' is-active' : ''}`}
+            onClick={() => onLiveOnly(!liveOnly)}
+          >
+            LIVE ONLY
+          </button>
+        </div>
+
+        <div className="search-count-row">
+          <span>
+            MATCHING
+            <span className="search-count-num">{String(matched.length).padStart(3, '0')}</span>
+            / {String(posts.length).padStart(3, '0')}
+          </span>
+          {filterActive && (
+            <button type="button" className="search-clear" onClick={onClear}>
+              [ CLEAR ]
+            </button>
+          )}
+        </div>
+
+        <div className="search-results" ref={listRef}>
+          {matched.length === 0 ? (
+            <div className="search-empty">
+              <p className="search-empty-line">─── NO MATCHES ───</p>
+              <p className="search-empty-hint">TRY A DIFFERENT WORD · OR CLEAR FILTERS</p>
+            </div>
+          ) : (
+            <ul className="search-list">
+              {matched.map((p, i) => (
+                <li
+                  key={p.id}
+                  data-i={i}
+                  style={{ '--i': Math.min(i, 24) }}
+                  className={`search-result${i === highlight ? ' is-highlight' : ''}`}
+                  onMouseEnter={() => setHighlight(i)}
+                  onClick={() => onPick(p)}
+                >
+                  <span className="result-index">{String(i + 1).padStart(3, '0')}</span>
+                  <span className="result-glyph">
+                    <svg viewBox="0 0 48 48" width="40" height="40">
+                      <CoverGlyphInline artist={p.artistName} track={p.trackName} size={48} />
+                    </svg>
+                  </span>
+                  <span className="result-text">
+                    <span className="result-track">{p.trackName}</span>
+                    <span className="result-artist">{p.artistName}</span>
+                  </span>
+                  <span className="result-meta">
+                    <span className="result-loc">{p.city} / {p.hood}</span>
+                    <span className="result-svc">
+                      {p.service} · {formatHrs(p.hrs)}
+                      {(p.hrs < 1 || p.own) && <span className="result-live-dot" />}
+                    </span>
+                  </span>
+                  <span className="result-arrow" aria-hidden="true">→</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="search-footer">
+          <span className="search-foot-item"><kbd>↑↓</kbd> NAVIGATE</span>
+          <span className="search-foot-item"><kbd>↵</kbd> LISTEN</span>
+          <span className="search-foot-item"><kbd>ESC</kbd> CLOSE</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- mine list view ----------
+function MineView({ posts, onBack, onPick, onEdit, onDelete, onCompose }) {
+  return (
+    <div className="mine">
+      <div className="mine-head">
+        <span className="mine-title">[ MY POSTS · {String(posts.length).padStart(2, '0')} ]</span>
+        <button className="back-link" type="button" onClick={onBack}>
+          ← BACK TO GLOBE
+        </button>
+      </div>
+      {posts.length === 0 ? (
+        <div className="mine-empty">
+          <p>NO POSTS YET.</p>
+          <button className="btn" type="button" onClick={onCompose}>
+            {'[ + SHARE WHAT YOU\u2019RE PLAYING ]'}
+          </button>
+        </div>
+      ) : (
+        <ul className="mine-list">
+          {posts.map((p) => (
+            <li key={p.id} className="mine-row">
+              <button
+                className="mine-row-main"
+                type="button"
+                onClick={() => onPick(p)}
+                title="LISTEN"
+              >
+                <span className="mine-glyph">
+                  <svg viewBox="0 0 48 48" width="44" height="44">
+                    <CoverGlyphInline artist={p.artistName} track={p.trackName} size={48} />
+                  </svg>
+                </span>
+                <span className="mine-text">
+                  <span className="mine-track">{p.trackName}</span>
+                  <span className="mine-artist">{p.artistName}</span>
+                  <span className="mine-loc">
+                    {p.city} / {p.hood} · {p.service} · {formatHrs(p.hrs)}
+                  </span>
+                </span>
+              </button>
+              <div className="mine-actions">
+                <button type="button" className="btn btn-ghost" onClick={() => onEdit(p)}>
+                  [ EDIT ]
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-danger"
+                  onClick={() => {
+                    if (typeof window !== 'undefined' && !window.confirm('DELETE THIS POST?')) return;
+                    onDelete(p);
+                  }}
+                >
+                  [ DELETE ]
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 // ---------- footer ----------
 function Footer({ view, onCompose }) {
   const hint =
     view === 'globe'
       ? 'DRAG TO ROTATE · TAP A DOT TO HEAR WHAT\u2019S PLAYING'
+      : view === 'mine'
+      ? 'YOUR POSTS · TAP TO LISTEN · EDIT OR DELETE ANY ROW'
       : 'ONE TRACK IN THIS NEIGHBOURHOOD · MORE NEARBY';
   return (
     <footer className="footer">
@@ -1175,12 +1503,18 @@ export default function App() {
   const [view, setView] = useState('globe');
   const [selected, setSelected] = useState(null);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
   const [extra, setExtra] = useState([]);
+  const [query, setQuery] = useState('');
+  const [serviceFilter, setServiceFilter] = useState('ALL');
+  const [liveOnly, setLiveOnly] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const posts = useMemo(() => [...MOCK_POSTS, ...extra], [extra]);
   const live = useMemo(() => posts.filter((p) => p.hrs < 1 || p.own).length, [posts]);
   const ownPosts = useMemo(() => posts.filter((p) => p.own), [posts]);
-  const ownCursorRef = useRef(0);
+
+  const filterActive = query.trim().length > 0 || serviceFilter !== 'ALL' || liveOnly;
 
   const pick = (p) => {
     setSelected(p);
@@ -1189,16 +1523,49 @@ export default function App() {
 
   const goToMine = () => {
     if (ownPosts.length === 0) {
+      setEditing(null);
       setComposeOpen(true);
       return;
     }
-    const idx = ownCursorRef.current % ownPosts.length;
-    ownCursorRef.current = idx + 1;
-    setSelected(ownPosts[idx]);
-    setView('hood');
+    setView('mine');
+  };
+
+  const startEdit = (post) => {
+    setEditing(post);
+    setComposeOpen(true);
+  };
+
+  const remove = (post) => {
+    setExtra((prev) => prev.filter((p) => p.id !== post.id));
+    if (selected && selected.id === post.id) {
+      setSelected(null);
+      if (view === 'hood') setView(ownPosts.length > 1 ? 'mine' : 'globe');
+    }
+    if (composeOpen) {
+      setComposeOpen(false);
+      setEditing(null);
+    }
   };
 
   const submit = (data) => {
+    const videoId = data.service === 'YOUTUBE' ? videoIdFromLink(data.link) : '';
+    if (editing) {
+      const updated = {
+        ...editing,
+        trackName: data.track || '(UNTITLED)',
+        artistName: data.artist || '(UNKNOWN ARTIST)',
+        service: data.service,
+        vibeNote: data.vibe || 'posted from here, right now.',
+        link: data.link,
+        videoId,
+      };
+      setExtra((prev) => prev.map((p) => (p.id === editing.id ? updated : p)));
+      setComposeOpen(false);
+      setEditing(null);
+      setSelected(updated);
+      setView('hood');
+      return;
+    }
     const p = {
       id: Date.now(),
       handle: '@you',
@@ -1211,36 +1578,74 @@ export default function App() {
       service: data.service,
       vibeNote: data.vibe || 'posted from here, right now.',
       link: data.link,
+      videoId,
       hrs: 0,
       own: true,
     };
     setExtra((prev) => [...prev, p]);
     setComposeOpen(false);
+    setEditing(null);
     setSelected(p);
     setView('hood');
   };
 
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key !== 'Escape') return;
-      if (composeOpen) setComposeOpen(false);
-      else if (view === 'hood') setView('globe');
+      if (e.key === 'Escape') {
+        if (searchOpen) { setSearchOpen(false); return; }
+        if (composeOpen) {
+          setComposeOpen(false);
+          setEditing(null);
+        } else if (view === 'hood' || view === 'mine') {
+          setView('globe');
+        }
+        return;
+      }
+      // open search with "/" shortcut when not focused in a field
+      if (e.key === '/' && !composeOpen && !searchOpen) {
+        const t = e.target;
+        const tag = t && t.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || (t && t.isContentEditable)) return;
+        e.preventDefault();
+        setSearchOpen(true);
+      }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [composeOpen, view]);
+  }, [composeOpen, view, searchOpen]);
 
   return (
     <>
       <style>{STYLES}</style>
       <Noise />
       <div className="app">
-        <Header total={posts.length} live={live} mine={ownPosts.length} onMine={goToMine} />
+        <Header
+          total={posts.length}
+          live={live}
+          mine={ownPosts.length}
+          onMine={goToMine}
+          onSearch={() => setSearchOpen(true)}
+          searchActive={filterActive}
+        />
         <main className="main">
-          {view === 'globe' ? (
-            <Globe posts={posts} onPick={pick} />
-          ) : (
-            selected && <Hood post={selected} onBack={() => setView('globe')} />
+          {view === 'globe' && <Globe posts={posts} onPick={pick} />}
+          {view === 'hood' && selected && (
+            <Hood
+              post={selected}
+              onBack={() => setView('globe')}
+              onEdit={selected.own ? () => startEdit(selected) : undefined}
+              onDelete={selected.own ? () => remove(selected) : undefined}
+            />
+          )}
+          {view === 'mine' && (
+            <MineView
+              posts={ownPosts}
+              onBack={() => setView('globe')}
+              onPick={pick}
+              onEdit={startEdit}
+              onDelete={remove}
+              onCompose={() => { setEditing(null); setComposeOpen(true); }}
+            />
           )}
           {/* decorative marks */}
           <span className="mark mark-plus">+</span>
@@ -1248,10 +1653,31 @@ export default function App() {
         </main>
         <Footer
           view={view}
-          onCompose={() => setComposeOpen(true)}
+          onCompose={() => { setEditing(null); setComposeOpen(true); }}
         />
       </div>
-      {composeOpen && <Compose onClose={() => setComposeOpen(false)} onSubmit={submit} />}
+      {composeOpen && (
+        <Compose
+          onClose={() => { setComposeOpen(false); setEditing(null); }}
+          onSubmit={submit}
+          initial={editing}
+          onDelete={editing ? remove : undefined}
+        />
+      )}
+      {searchOpen && (
+        <SearchModal
+          posts={posts}
+          onClose={() => setSearchOpen(false)}
+          onPick={(p) => { setSearchOpen(false); pick(p); }}
+          query={query}
+          onQuery={setQuery}
+          serviceFilter={serviceFilter}
+          onServiceFilter={setServiceFilter}
+          liveOnly={liveOnly}
+          onLiveOnly={setLiveOnly}
+          onClear={() => { setQuery(''); setServiceFilter('ALL'); setLiveOnly(false); }}
+        />
+      )}
     </>
   );
 }
@@ -1444,8 +1870,550 @@ body {
   border: 1px solid ${PALETTE.hairline};
 }
 .btn-ghost:hover { color: ${PALETTE.inkFade}; border-color: ${PALETTE.ink}; }
+.btn-danger:hover { color: ${PALETTE.accent}; border-color: ${PALETTE.accent}; }
 .btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .btn:disabled:hover { color: ${PALETTE.bg}; }
+
+/* search chip in header */
+.chip.chip-search {
+  position: relative;
+  letter-spacing: 0.18em;
+  padding-right: 14px;
+}
+.chip.chip-search.is-filtered {
+  background: ${PALETTE.ink};
+  color: ${PALETTE.bg};
+  border-color: ${PALETTE.ink};
+}
+.chip-pip {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: ${PALETTE.accent};
+  box-shadow: 0 0 0 2px ${PALETTE.bg};
+}
+
+/* search modal — full-screen departure board */
+@keyframes search-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes search-row-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes search-caret {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+@keyframes search-corners-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.search-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background: ${PALETTE.bgFade};
+  backdrop-filter: blur(14px) saturate(110%);
+  -webkit-backdrop-filter: blur(14px) saturate(110%);
+  animation: search-fade-in 0.18s ease-out;
+}
+.search-panel {
+  position: relative;
+  width: 100%;
+  max-width: 760px;
+  max-height: 100%;
+  background: ${PALETTE.bg};
+  border: 1px solid ${PALETTE.hairline};
+  display: flex;
+  flex-direction: column;
+  padding: 28px 32px 0;
+  overflow: hidden;
+}
+
+/* corner brackets */
+.search-corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+  animation: search-corners-in 0.32s 0.04s both ease-out;
+}
+.search-corner-tl {
+  top: 8px;
+  left: 8px;
+  border-top: 1px solid ${PALETTE.ink};
+  border-left: 1px solid ${PALETTE.ink};
+}
+.search-corner-tr {
+  top: 8px;
+  right: 8px;
+  border-top: 1px solid ${PALETTE.ink};
+  border-right: 1px solid ${PALETTE.ink};
+}
+.search-corner-bl {
+  bottom: 8px;
+  left: 8px;
+  border-bottom: 1px solid ${PALETTE.ink};
+  border-left: 1px solid ${PALETTE.ink};
+}
+.search-corner-br {
+  bottom: 8px;
+  right: 8px;
+  border-bottom: 1px solid ${PALETTE.ink};
+  border-right: 1px solid ${PALETTE.ink};
+}
+
+.search-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 12px;
+  border-bottom: 1px solid ${PALETTE.hairline};
+}
+.search-title {
+  font: 500 11px/1 'IBM Plex Mono', monospace;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: ${PALETTE.ink};
+}
+.search-close {
+  background: transparent;
+  border: none;
+  color: ${PALETTE.mute};
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  transition: color 0.15s;
+}
+.search-close:hover { color: ${PALETTE.ink}; }
+
+.search-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 4px 18px;
+  border-bottom: 1px solid ${PALETTE.hairline};
+}
+.search-prompt {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 22px;
+  line-height: 1;
+  color: ${PALETTE.accent};
+  font-weight: 500;
+}
+.search-big-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font: 300 26px/1.2 'IBM Plex Sans', system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: ${PALETTE.ink};
+  padding: 4px 0;
+}
+.search-big-input::placeholder {
+  color: ${PALETTE.mute};
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+.search-caret {
+  width: 1px;
+  height: 26px;
+  background: ${PALETTE.ink};
+  animation: search-caret 1.05s steps(1) infinite;
+}
+
+.search-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 4px 12px;
+  border-bottom: 1px solid ${PALETTE.hairline};
+}
+.search-filters-label {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: ${PALETTE.mute};
+  margin-right: 4px;
+}
+.filter-chip {
+  font: 500 10px/1 'IBM Plex Mono', monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background: transparent;
+  color: ${PALETTE.mute};
+  border: 1px solid ${PALETTE.hairline};
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  border-radius: 0;
+}
+.filter-chip:hover {
+  color: ${PALETTE.ink};
+  border-color: ${PALETTE.ink};
+}
+.filter-chip.is-active {
+  color: ${PALETTE.bg};
+  background: ${PALETTE.ink};
+  border-color: ${PALETTE.ink};
+}
+.filter-divider {
+  width: 1px;
+  align-self: stretch;
+  background: ${PALETTE.hairline};
+  margin: 2px 4px;
+}
+
+.search-count-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 12px 4px 10px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: ${PALETTE.mute};
+}
+.search-count-num {
+  color: ${PALETTE.ink};
+  font-weight: 500;
+  margin: 0 4px;
+}
+.search-clear {
+  font: 500 10px/1 'IBM Plex Mono', monospace;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  background: transparent;
+  border: none;
+  color: ${PALETTE.accent};
+  cursor: pointer;
+  padding: 4px 0;
+}
+.search-clear:hover { color: ${PALETTE.inkFade}; }
+
+.search-results {
+  flex: 1;
+  overflow-y: auto;
+  margin: 0 -32px;
+  padding: 0 32px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: ${PALETTE.hairline} transparent;
+}
+.search-results::-webkit-scrollbar { width: 6px; }
+.search-results::-webkit-scrollbar-thumb { background: ${PALETTE.hairline}; }
+.search-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0 4px;
+}
+.search-result {
+  display: grid;
+  grid-template-columns: 28px 44px minmax(0, 1.6fr) minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 8px;
+  border-bottom: 1px dashed ${PALETTE.hairline};
+  cursor: pointer;
+  background: transparent;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  transition: background 0.12s, padding 0.12s;
+  animation: search-row-in 0.34s both ease-out;
+  animation-delay: calc(var(--i, 0) * 22ms);
+}
+.search-result:hover,
+.search-result.is-highlight {
+  background: rgba(10, 10, 10, 0.04);
+  padding-left: 14px;
+  border-bottom-color: ${PALETTE.ink};
+}
+.search-result.is-highlight {
+  box-shadow: inset 3px 0 0 ${PALETTE.accent};
+}
+.search-result.is-highlight .result-arrow,
+.search-result:hover .result-arrow {
+  color: ${PALETTE.accent};
+  transform: translateX(2px);
+}
+.result-index {
+  font: 500 10px/1 'IBM Plex Mono', monospace;
+  letter-spacing: 0.1em;
+  color: ${PALETTE.mute};
+  text-transform: uppercase;
+}
+.result-glyph {
+  font: 500 10px/1 'IBM Plex Mono', monospace;
+  color: ${PALETTE.mute};
+  letter-spacing: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.result-glyph .result-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: ${PALETTE.accent};
+  display: inline-block;
+}
+.result-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.result-track {
+  font: 400 14px/1.3 'IBM Plex Sans', system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  color: ${PALETTE.ink};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.result-artist {
+  font: 300 italic 12px/1.3 'IBM Plex Sans', system-ui, sans-serif;
+  color: ${PALETTE.inkFade};
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.result-meta {
+  font: 500 10px/1.4 'IBM Plex Mono', monospace;
+  color: ${PALETTE.mute};
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-end;
+  min-width: 0;
+}
+.result-loc {
+  color: ${PALETTE.ink};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.result-svc {
+  color: ${PALETTE.mute};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.result-arrow {
+  font: 500 14px/1 'IBM Plex Mono', monospace;
+  color: ${PALETTE.mute};
+  transition: color 0.15s, transform 0.15s;
+}
+
+.search-empty {
+  padding: 40px 16px 32px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.search-empty-line {
+  font: 300 18px/1.3 'IBM Plex Sans', system-ui, sans-serif;
+  font-style: italic;
+  color: ${PALETTE.inkFade};
+  letter-spacing: 0.02em;
+}
+.search-empty-hint {
+  font: 500 10px/1 'IBM Plex Mono', monospace;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: ${PALETTE.mute};
+}
+
+.search-footer {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  padding: 12px 0 14px;
+  border-top: 1px solid ${PALETTE.hairline};
+  margin-top: 4px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: ${PALETTE.mute};
+}
+.search-foot-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.search-footer kbd {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border: 1px solid ${PALETTE.hairline};
+  color: ${PALETTE.ink};
+  background: transparent;
+  min-width: 16px;
+  text-align: center;
+}
+
+@media (max-width: 560px) {
+  .search-panel { padding: 24px 18px 0; }
+  .search-results { margin: 0 -18px; padding: 0 18px 8px; }
+  .search-big-input { font-size: 20px; }
+  .search-result { grid-template-columns: 22px 14px 1fr auto 10px; gap: 10px; }
+  .result-meta { font-size: 9px; }
+  .search-footer { gap: 14px; flex-wrap: wrap; }
+}
+
+/* mine list view */
+.mine {
+  width: 100%;
+  max-width: 720px;
+  padding: 16px 24px 32px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mine-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid ${PALETTE.hairline};
+  padding-bottom: 8px;
+}
+.mine-title {
+  font-weight: 500;
+  letter-spacing: 0.16em;
+}
+.mine-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 64px 24px;
+  color: ${PALETTE.mute};
+  text-align: center;
+}
+.mine-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.mine-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid ${PALETTE.hairline};
+  padding: 12px 4px;
+}
+.mine-row-main {
+  flex: 1 1 220px;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: ${PALETTE.ink};
+  transition: opacity 0.15s;
+}
+.mine-row-main:hover { opacity: 0.65; }
+.mine-glyph {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+}
+.mine-glyph svg { display: block; }
+.mine-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.mine-track {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mine-artist {
+  color: ${PALETTE.mute};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mine-loc {
+  font-size: 9px;
+  color: ${PALETTE.mute};
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mine-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+.mine-actions .btn {
+  padding: 6px 10px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* hood owner actions */
+.post-owner-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.post-owner-actions .btn {
+  flex: 1;
+  padding: 8px 10px;
+  font-size: 10px;
+}
 
 /* hood */
 .hood {
