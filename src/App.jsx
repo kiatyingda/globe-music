@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
+import { supabase, rowToPost, hoursAgo } from './lib/supabase';
 
 const PALETTE = {
   bg: '#F0EBDF',
@@ -255,67 +256,10 @@ function CoverGlyphInline({ artist, track, x = 0, y = 0, size = 48 }) {
   );
 }
 
-// ---------- mock posts ----------
-const MOCK_POSTS = [
-  { id: 1, handle: '@kiko_sun', lat: 35.6762, lng: 139.6503, city: 'TOKYO', hood: 'GINZA', trackName: 'First Love', artistName: 'Hikaru Utada', service: 'YOUTUBE', videoId: 'o1sUaVJUeB0', vibeNote: 'first rain of the season. 6am. ginza is a painting.', hrs: 0.15 },
-  { id: 2, handle: '@alfama_cat', lat: 38.7223, lng: -9.1393, city: 'LISBON', hood: 'ALFAMA', trackName: 'Tigresa', artistName: 'Caetano Veloso', service: 'YOUTUBE', videoId: 'sSqU6vgs3Dc', vibeNote: 'saudade is its own weather.', hrs: 0.4 },
-  { id: 3, handle: '@late_train', lat: 1.3916, lng: 103.8953, city: 'SINGAPORE', hood: 'SENGKANG', trackName: 'Dreamer', artistName: 'Sungazer', service: 'YOUTUBE', videoId: '', vibeNote: 'mrt at midnight. bass in the rails.', hrs: 0.5 },
-  { id: 4, handle: '@bodega_nights', lat: 40.7178, lng: -73.9898, city: 'NEW YORK', hood: 'LES', trackName: 'White Ferrari', artistName: 'Frank Ocean', service: 'YOUTUBE', videoId: 'ToO4VFCoR7U', vibeNote: 'bodega cat, 4am, not my problem.', hrs: 0.9 },
-  { id: 5, handle: '@north_wind', lat: 64.1466, lng: -21.9426, city: 'REYKJAVÍK', hood: 'LAUGAVEGUR', trackName: 'Hoppípolla', artistName: 'Sigur Rós', service: 'YOUTUBE', videoId: 'JAYb8ZyjzD0', vibeNote: 'aurora is thin. the song gets there anyway.', hrs: 0.75 },
-  { id: 6, handle: '@mole_poblano', lat: 17.0732, lng: -96.7266, city: 'OAXACA', hood: 'CENTRO', trackName: 'La Cumbia del Mole', artistName: 'Lila Downs', service: 'SOUNDCLOUD', videoId: 'tMpMOOAQ_90', vibeNote: 'mole and cumbia. nothing else survives.', hrs: 2.3 },
-  { id: 7, handle: '@nile_slow', lat: 30.0626, lng: 31.2197, city: 'CAIRO', hood: 'ZAMALEK', trackName: 'Enta Omri', artistName: 'Umm Kulthum', service: 'YOUTUBE', videoId: 'XPGHpBOt5sE', vibeNote: 'the nile is moving slower than the traffic.', hrs: 4 },
-  { id: 8, handle: '@noraebang', lat: 37.5340, lng: 126.9940, city: 'SEOUL', hood: 'ITAEWON', trackName: 'Through the Night', artistName: 'IU', service: 'YOUTUBE', videoId: 'BzYnNdJhZQw', vibeNote: 'noraebang at 4am. voice gone. worth it.', hrs: 6 },
-  { id: 9, handle: '@palermo_tango', lat: -34.5755, lng: -58.4305, city: 'BUENOS AIRES', hood: 'PALERMO', trackName: 'Santa Maria (del Buen Ayre)', artistName: 'Gotan Project', service: 'SOUNDCLOUD', videoId: 'mX87sc-0-ic', vibeNote: 'tango bleeds through the wall.', hrs: 8 },
-  { id: 10, handle: '@kreuz_hum', lat: 52.4996, lng: 13.4033, city: 'BERLIN', hood: 'KREUZBERG', trackName: 'Says', artistName: 'Nils Frahm', service: 'BANDCAMP', videoId: 'dIwwjy4slI8', vibeNote: 'u-bahn hum. piano somewhere above.', hrs: 12 },
-  { id: 11, handle: '@bandra_rain', lat: 19.0596, lng: 72.8295, city: 'MUMBAI', hood: 'BANDRA', trackName: 'Dil Se Re', artistName: 'A.R. Rahman', service: 'YOUTUBE', videoId: 'QjbGePa-vG0', vibeNote: 'monsoon. dosa. this song.', hrs: 3 },
-  { id: 12, handle: '@atlantic_wind', lat: -33.9293, lng: 18.4487, city: 'CAPE TOWN', hood: 'WOODSTOCK', trackName: 'Cucurucu', artistName: 'Nick Mulvey', service: 'YOUTUBE', videoId: '2O1-XNwNq70', vibeNote: 'atlantic wind at the bus stop.', hrs: 14 },
-  { id: 13, handle: '@fog_cathedral', lat: 37.7599, lng: -122.4148, city: 'SAN FRANCISCO', hood: 'MISSION', trackName: 'Nobody', artistName: 'Mitski', service: 'BANDCAMP', videoId: 'qooWnw5rEcI', vibeNote: 'fog eating the hills.', hrs: 16 },
-  { id: 14, handle: '@ponsonby_drop', lat: -36.8509, lng: 174.7400, city: 'AUCKLAND', hood: 'PONSONBY', trackName: 'Wandering Eye', artistName: "Fat Freddy's Drop", service: 'BANDCAMP', videoId: 'JtyCtksvSOg', vibeNote: 'pacific blue all the way down.', hrs: 5 },
-  { id: 15, handle: '@medina_tea', lat: 31.6295, lng: -7.9811, city: 'MARRAKECH', hood: 'MEDINA', trackName: 'Essiniya', artistName: 'Nass El Ghiwane', service: 'YOUTUBE', videoId: 'evCDDXIWjrU', vibeNote: 'tea. spice. the square at dusk.', hrs: 7 },
-  { id: 16, handle: '@bosphorus', lat: 41.0359, lng: 28.9784, city: 'ISTANBUL', hood: 'BEYOĞLU', trackName: 'Yolcu', artistName: 'Altın Gün', service: 'BANDCAMP', videoId: 'AsDsAQFrGD0', vibeNote: 'bosphorus ferry. backward through time.', hrs: 11 },
-  { id: 17, handle: '@marble_cold', lat: 25.2072, lng: 55.2708, city: 'DUBAI', hood: 'JUMEIRAH', trackName: 'Piel', artistName: 'Arca', service: 'SOUNDCLOUD', videoId: 't1QSgdMPI5g', vibeNote: 'sand in the ac. marble cold.', hrs: 20 },
-  { id: 18, handle: '@gion_heron', lat: 35.0037, lng: 135.7781, city: 'KYOTO', hood: 'GION', trackName: 'Sports Men', artistName: 'Haruomi Hosono', service: 'YOUTUBE', videoId: '-uv-FhIOPvE', vibeNote: 'temple bell. a heron takes off.', hrs: 1.1 },
-  { id: 19, handle: '@malecon', lat: 23.1380, lng: -82.3772, city: 'HAVANA', hood: 'VEDADO', trackName: 'Dos Gardenias', artistName: 'Ibrahim Ferrer', service: 'YOUTUBE', videoId: 'fugRvM6s5fc', vibeNote: 'malecón. the sea is warm.', hrs: 30 },
-  { id: 20, handle: '@ari_moto', lat: 13.7798, lng: 100.5418, city: 'BANGKOK', hood: 'ARI', trackName: 'Lover Boy', artistName: 'Phum Viphurit', service: 'YOUTUBE', videoId: '8HnLRrQ3RS4', vibeNote: 'moto taxi. neon through the rain.', hrs: 18 },
-  { id: 21, handle: '@midnight_sun', lat: 59.9225, lng: 10.7577, city: 'OSLO', hood: 'GRÜNERLØKKA', trackName: 'Runaway', artistName: 'Aurora', service: 'YOUTUBE', videoId: 'd_HlPboLRL8', vibeNote: 'white night. fjord is glass.', hrs: 22 },
-  { id: 22, handle: '@belleville', lat: 48.8721, lng: 2.3770, city: 'PARIS', hood: 'BELLEVILLE', trackName: 'Tous les garçons et les filles', artistName: 'Françoise Hardy', service: 'YOUTUBE', videoId: 'LEUGSgmphwA', vibeNote: 'seine. cigarette smoke. 9pm.', hrs: 26 },
-  { id: 23, handle: '@samba_wall', lat: -30.0277, lng: -51.2287, city: 'PORTO ALEGRE', hood: 'CIDADE BAIXA', trackName: 'A Carne', artistName: 'Elza Soares', service: 'YOUTUBE', videoId: 'yktrUMoc1Xw', vibeNote: 'samba school rehearses two streets away.', hrs: 34 },
-  { id: 24, handle: '@scooter_brake', lat: 21.0292, lng: 105.8542, city: 'HANOI', hood: 'HOAN KIEM', trackName: 'Cuốn Theo Chiều Gió', artistName: 'Saigon Soul Revival', service: 'BANDCAMP', videoId: '', vibeNote: 'pho steam. scooter. brake.', hrs: 19 },
-  { id: 25, handle: '@soder_ferry', lat: 59.3142, lng: 18.0720, city: 'STOCKHOLM', hood: 'SÖDERMALM', trackName: 'Heartbeats', artistName: 'The Knife', service: 'BANDCAMP', videoId: 'pPD8Ja64mRU', vibeNote: 'archipelago ferry. november.', hrs: 28 },
-  { id: 26, handle: '@bora_gate', lat: 45.6495, lng: 13.7768, city: 'TRIESTE', hood: 'CITTÀ VECCHIA', trackName: 'Ovunque Proteggi', artistName: 'Vinicio Capossela', service: 'YOUTUBE', videoId: 'wx44rJvd7VY', vibeNote: 'bora wind at the bora gate.', hrs: 40 },
-  { id: 27, handle: '@teh_tarik', lat: 3.1319, lng: 101.6841, city: 'KUALA LUMPUR', hood: 'BANGSAR', trackName: 'Lullabies', artistName: 'Yuna', service: 'YOUTUBE', videoId: 'V3A9syKFpm0', vibeNote: "teh tarik. storm's about to break.", hrs: 9 },
-  { id: 28, handle: '@sulfur_baths', lat: 41.6938, lng: 44.8015, city: 'TBILISI', hood: 'OLD TOWN', trackName: 'Gana Gana', artistName: 'Mgzavrebi', service: 'YOUTUBE', videoId: '', vibeNote: 'sulfur baths. rain stops. starts again.', hrs: 36 },
-  { id: 29, handle: '@jacaranda', lat: 19.4120, lng: -99.1730, city: 'CDMX', hood: 'CONDESA', trackName: 'Hasta la Raíz', artistName: 'Natalia Lafourcade', service: 'YOUTUBE', videoId: 'iHSnLRrEC10', vibeNote: 'jacaranda. afternoon light. old café.', hrs: 24 },
-  { id: 30, handle: '@rooftop_mango', lat: 23.7465, lng: 90.3760, city: 'DHAKA', hood: 'DHANMONDI', trackName: 'Deora', artistName: 'Coke Studio Bangla', service: 'YOUTUBE', videoId: 'O8yq399dsyk', vibeNote: 'rooftop. mangoes. whole city below.', hrs: 38 },
-  { id: 31, handle: '@hamra_dawn', lat: 33.8998, lng: 35.4822, city: 'BEIRUT', hood: 'HAMRA', trackName: 'Li Beirut', artistName: 'Fairuz', service: 'YOUTUBE', videoId: 'OTejHfVWQUM', vibeNote: 'mediterranean from the balcony. 7am.', hrs: 42 },
-  { id: 32, handle: '@kallio_snow', lat: 60.1841, lng: 24.9498, city: 'HELSINKI', hood: 'KALLIO', trackName: 'Deeper Shadows', artistName: 'Jaakko Eino Kalevi', service: 'BANDCAMP', videoId: 'AoTDrwdPZjk', vibeNote: 'sauna. snow. sauna.', hrs: 32 },
-  { id: 33, handle: '@matatu_bass', lat: -1.2921, lng: 36.7842, city: 'NAIROBI', hood: 'KILIMANI', trackName: 'Mungu Pekee', artistName: 'Nyashinski', service: 'YOUTUBE', videoId: 'qKtryXQArWE', vibeNote: 'matatu bass. dust. golden hour.', hrs: 48 },
-  { id: 34, handle: '@bodega_lima', lat: -12.1461, lng: -77.0224, city: 'LIMA', hood: 'BARRANCO', trackName: 'María Landó', artistName: 'Susana Baca', service: 'YOUTUBE', videoId: 'muQ74N5LgkM', vibeNote: 'fog off the sea. bodega opens.', hrs: 52 },
-  { id: 35, handle: '@thamel', lat: 27.7151, lng: 85.3107, city: 'KATHMANDU', hood: 'THAMEL', trackName: 'Sathi', artistName: 'Bartika Eam Rai', service: 'YOUTUBE', videoId: '', vibeNote: 'himalayan dawn. tea is too hot.', hrs: 44 },
-  { id: 36, handle: '@cobbles', lat: 56.9496, lng: 24.1052, city: 'RIGA', hood: 'CENTRS', trackName: 'Nobody Knows', artistName: 'Lauris Reiniks', service: 'YOUTUBE', videoId: '', vibeNote: 'cobblestones. black coffee. tram bell.', hrs: 56 },
-  { id: 37, handle: '@orthodox', lat: 42.6977, lng: 23.3219, city: 'SOFIA', hood: 'CENTRE', trackName: 'Izlel E Delyu Haydutin', artistName: 'Valya Balkanska', service: 'YOUTUBE', videoId: '', vibeNote: 'orthodox bells. first frost.', hrs: 60 },
-  { id: 38, handle: '@makati_rain', lat: 14.5547, lng: 121.0244, city: 'MANILA', hood: 'MAKATI', trackName: 'Kathang Isip', artistName: 'Ben&Ben', service: 'YOUTUBE', videoId: 'Bcv2cH8rsKU', vibeNote: 'typhoon skies. jeepney horn.', hrs: 17 },
-  { id: 39, handle: '@freo_fish', lat: -32.0569, lng: 115.7439, city: 'PERTH', hood: 'FREMANTLE', trackName: 'The Less I Know The Better', artistName: 'Tame Impala', service: 'BANDCAMP', videoId: 'sBzrzS1Ag_g', vibeNote: 'indian ocean. fish and chips. 4pm.', hrs: 46 },
-  { id: 40, handle: '@jordaan_cafe', lat: 52.3742, lng: 4.8843, city: 'AMSTERDAM', hood: 'JORDAAN', trackName: 'A Night Like This', artistName: 'Caro Emerald', service: 'YOUTUBE', videoId: '74LXx0wSqMI', vibeNote: 'canal ice. candle. brown café.', hrs: 50 },
-  { id: 41, handle: '@yongkang_alley', lat: 25.0330, lng: 121.5294, city: 'TAIPEI', hood: 'YONGKANG', trackName: '小情歌', artistName: 'Sodagreen', service: 'YOUTUBE', videoId: 'in8NNzwFa-s', vibeNote: 'narrow alley. coffee steam. 5pm light.', hrs: 0.6 },
-  { id: 42, handle: '@xiangshan_haze', lat: 25.0277, lng: 121.5719, city: 'TAIPEI', hood: 'XIANGSHAN', trackName: '無與倫比的美麗', artistName: 'Sodagreen', service: 'YOUTUBE', videoId: 'NA4otP-v6iI', vibeNote: 'elephant mountain. 101 in the haze.', hrs: 16 },
-  { id: 43, handle: '@gongguan_rain', lat: 25.0148, lng: 121.5345, city: 'TAIPEI', hood: 'GONGGUAN', trackName: '你在煩惱什麼', artistName: 'Sodagreen', service: 'YOUTUBE', videoId: '-3TmzrEDuJ8', vibeNote: 'bookstore basement. rain outside.', hrs: 33 },
-  // ---- eva cassidy across dc / maryland ----
-  { id: 51, handle: '@blues_alley_room', lat: 38.9046, lng: -77.0617, city: 'WASHINGTON DC', hood: 'GEORGETOWN', trackName: 'Over the Rainbow', artistName: 'Eva Cassidy', service: 'YOUTUBE', videoId: 'wzDgCUdWnQI', vibeNote: 'blues alley, january 1996. the room hushed. she did not know.', hrs: 0.25 },
-  { id: 52, handle: '@autumn_in_dc', lat: 38.8788, lng: -77.0246, city: 'WASHINGTON DC', hood: 'THE WHARF', trackName: 'Autumn Leaves', artistName: 'Eva Cassidy', service: 'YOUTUBE', videoId: 'Gw4tPdnEDfE', vibeNote: 'potomac at dusk. the leaves go quietly.', hrs: 1.2 },
-  { id: 53, handle: '@bowie_porch', lat: 38.9426, lng: -76.7305, city: 'BOWIE', hood: 'OLD TOWN', trackName: 'Fields of Gold', artistName: 'Eva Cassidy', service: 'YOUTUBE', videoId: 'OHmm0K9V6OE', vibeNote: 'maryland summer. wheat in the wind. her voice the only weather.', hrs: 3 },
-  { id: 54, handle: '@adams_morgan_late', lat: 38.9223, lng: -77.0427, city: 'WASHINGTON DC', hood: 'ADAMS MORGAN', trackName: 'Songbird', artistName: 'Eva Cassidy', service: 'YOUTUBE', videoId: 'j04OCqLY3kc', vibeNote: '18th street at 2am. the song stops the conversation.', hrs: 5 },
-  { id: 55, handle: '@severn_bridge', lat: 38.9784, lng: -76.4922, city: 'ANNAPOLIS', hood: 'EASTPORT', trackName: 'Time After Time', artistName: 'Eva Cassidy', service: 'YOUTUBE', videoId: '8MbUWzS7w2Q', vibeNote: 'sailboat halyards. the bay holding still for her.', hrs: 9 },
-  { id: 56, handle: '@anacostia_river', lat: 38.8702, lng: -76.9876, city: 'WASHINGTON DC', hood: 'ANACOSTIA', trackName: 'Bridge Over Troubled Water', artistName: 'Eva Cassidy', service: 'YOUTUBE', videoId: 'rAYbIhVmhdg', vibeNote: 'east of the river. she carries you across.', hrs: 15 },
-  { id: 57, handle: '@fells_point', lat: 39.2826, lng: -76.5926, city: 'BALTIMORE', hood: 'FELLS POINT', trackName: 'Danny Boy', artistName: 'Eva Cassidy', service: 'YOUTUBE', videoId: 'fyYbCIDZrgo', vibeNote: 'cobblestones wet. tugboat answering somewhere.', hrs: 22 },
-  { id: 58, handle: '@u_street_dawn', lat: 38.9079, lng: -77.0319, city: 'WASHINGTON DC', hood: '14TH STREET', trackName: 'What a Wonderful World', artistName: 'Eva Cassidy', service: 'YOUTUBE', videoId: 'V2zfFEQgoZw', vibeNote: 'first light on 14th. she means it. she means it.', hrs: 36 },
-  // ---- long vacation ost · cagnet · tokyo, 1996 ----
-  { id: 61, handle: '@aoyama_piano', lat: 35.6647, lng: 139.7197, city: 'TOKYO', hood: 'AOYAMA', trackName: 'Close to You (セナのピアノ)', artistName: 'Cagnet', service: 'YOUTUBE', videoId: 'pNfwnpcPyXo', vibeNote: 'apartment 401. summer rain. one piano line, on repeat.', hrs: 0.3 },
-  { id: 62, handle: '@setagaya_balcony', lat: 35.6464, lng: 139.6532, city: 'TOKYO', hood: 'SETAGAYA', trackName: 'Long Vacation', artistName: 'Cagnet', service: 'YOUTUBE', videoId: 'WYUgAkAg9LM', vibeNote: 'three months of nothing. the season takes care of it.', hrs: 1.5 },
-  { id: 63, handle: '@daikanyama_curb', lat: 35.6499, lng: 139.7032, city: 'TOKYO', hood: 'DAIKANYAMA', trackName: 'Sobani Iteyo (側にいてよ)', artistName: 'Cagnet', service: 'YOUTUBE', videoId: 'zJcrQSWGlmA', vibeNote: 'asking quietly. not a question.', hrs: 4 },
-  { id: 64, handle: '@shimokita_window', lat: 35.6614, lng: 139.6680, city: 'TOKYO', hood: 'SHIMOKITAZAWA', trackName: 'Silent Emotion', artistName: 'Cagnet', service: 'YOUTUBE', videoId: 'O5ZL5cvZ2t8', vibeNote: 'curtain moving. cicadas in the distance.', hrs: 11 },
-  { id: 65, handle: '@shibuya_after', lat: 35.6580, lng: 139.7016, city: 'TOKYO', hood: 'SHIBUYA', trackName: 'Little by Little', artistName: 'Cagnet', service: 'YOUTUBE', videoId: 'l_qIwQEd4Ts', vibeNote: 'crossing empties at 3am. the city remembers something.', hrs: 19 },
-];
+// ---------- posts ----------
+// All seed posts live in the Supabase `posts` table (created_at backdated to
+// preserve the "hours ago" feel). The frontend fetches them on mount and
+// subscribes to realtime changes — see App() below.
 
 // ---------- decrypted text ----------
 function DecryptedText({ text, duration = 700 }) {
@@ -1619,15 +1563,100 @@ export default function App() {
   const [selected, setSelected] = useState(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [extra, setExtra] = useState([]);
+  const [rows, setRows] = useState([]); // raw Supabase rows (snake_case)
+  const [userId, setUserId] = useState(null);
+  // eslint-disable-next-line no-unused-vars
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [serviceFilter, setServiceFilter] = useState('ALL');
   const [liveOnly, setLiveOnly] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  const posts = useMemo(() => [...MOCK_POSTS, ...extra], [extra]);
+  // ---- Supabase: anonymous auth + initial fetch + realtime subscription -----
+  useEffect(() => {
+    let mounted = true;
+    let channel = null;
+
+    (async () => {
+      // 1. Sign in anonymously (or restore an existing session). The user_id is
+      //    used for posts.owner_id so other devices can't edit/delete this
+      //    device's posts.
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        let user = session?.user ?? null;
+        if (!user) {
+          const { data, error } = await supabase.auth.signInAnonymously();
+          if (error) {
+            // eslint-disable-next-line no-console
+            console.warn('[supabase] anonymous auth failed:', error.message);
+          } else {
+            user = data.user;
+          }
+        }
+        if (mounted) setUserId(user?.id ?? null);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[supabase] auth error:', e?.message ?? e);
+      }
+
+      // 2. Fetch all posts (newest first).
+      try {
+        const { data, error } = await supabase
+          .from('posts')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.warn('[supabase] fetch posts failed:', error.message);
+        } else if (mounted) {
+          setRows(data ?? []);
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[supabase] fetch error:', e?.message ?? e);
+      }
+      if (mounted) setLoading(false);
+
+      // 3. Realtime — keep all open tabs in sync.
+      channel = supabase
+        .channel('posts-stream')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, (payload) => {
+          setRows((prev) => (prev.some((r) => r.id === payload.new.id) ? prev : [payload.new, ...prev]));
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'posts' }, (payload) => {
+          setRows((prev) => prev.map((r) => (r.id === payload.new.id ? payload.new : r)));
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'posts' }, (payload) => {
+          setRows((prev) => prev.filter((r) => r.id !== payload.old.id));
+        })
+        .subscribe();
+    })();
+
+    return () => {
+      mounted = false;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // ---- derived UI shape: row -> post + computed `own` and `hrs` -------------
+  const posts = useMemo(() => {
+    return rows.map((r) => {
+      const p = rowToPost(r);
+      p.own = !!(userId && p.ownerId === userId && !p.isSeed);
+      p.hrs = hoursAgo(p.createdAt);
+      return p;
+    });
+  }, [rows, userId]);
+
   const live = useMemo(() => posts.filter((p) => p.hrs < 1 || p.own).length, [posts]);
   const ownPosts = useMemo(() => posts.filter((p) => p.own), [posts]);
+
+  // Keep `selected` fresh when its underlying row changes (edit / realtime).
+  useEffect(() => {
+    if (!selected) return;
+    const fresh = posts.find((p) => p.id === selected.id);
+    if (fresh && fresh !== selected) setSelected(fresh);
+  }, [posts, selected]);
 
   const filterActive = query.trim().length > 0 || serviceFilter !== 'ALL' || liveOnly;
 
@@ -1650,8 +1679,9 @@ export default function App() {
     setComposeOpen(true);
   };
 
-  const remove = (post) => {
-    setExtra((prev) => prev.filter((p) => p.id !== post.id));
+  const remove = async (post) => {
+    // Optimistic remove from local rows; realtime will reconcile.
+    setRows((prev) => prev.filter((r) => r.id !== post.id));
     if (selected && selected.id === post.id) {
       setSelected(null);
       if (view === 'hood') setView(ownPosts.length > 1 ? 'mine' : 'globe');
@@ -1660,47 +1690,95 @@ export default function App() {
       setComposeOpen(false);
       setEditing(null);
     }
+    const { error } = await supabase.from('posts').delete().eq('id', post.id);
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.warn('[supabase] delete failed:', error.message);
+    }
   };
 
-  const submit = (data) => {
+  const submit = async (data) => {
     const videoId = data.service === 'YOUTUBE' ? videoIdFromLink(data.link) : '';
+
     if (editing) {
-      const updated = {
-        ...editing,
-        trackName: data.track || '(UNTITLED)',
-        artistName: data.artist || '(UNKNOWN ARTIST)',
+      const patch = {
+        track_name: data.track || '(UNTITLED)',
+        artist_name: data.artist || '(UNKNOWN ARTIST)',
         service: data.service,
-        vibeNote: data.vibe || 'posted from here, right now.',
+        vibe_note: data.vibe || 'posted from here, right now.',
         link: data.link,
-        videoId,
+        video_id: videoId,
+        updated_at: new Date().toISOString(),
       };
-      setExtra((prev) => prev.map((p) => (p.id === editing.id ? updated : p)));
+      // Optimistic patch on local rows.
+      setRows((prev) => prev.map((r) => (r.id === editing.id ? { ...r, ...patch } : r)));
+      const updatedView = {
+        ...editing,
+        trackName: patch.track_name,
+        artistName: patch.artist_name,
+        service: patch.service,
+        vibeNote: patch.vibe_note,
+        link: patch.link,
+        videoId: patch.video_id,
+      };
       setComposeOpen(false);
       setEditing(null);
-      setSelected(updated);
+      setSelected(updatedView);
       setView('hood');
+
+      const { error } = await supabase
+        .from('posts')
+        .update(patch)
+        .eq('id', editing.id);
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.warn('[supabase] update failed:', error.message);
+      }
       return;
     }
-    const p = {
-      id: Date.now(),
+
+    if (!userId) {
+      // eslint-disable-next-line no-console
+      console.warn('[supabase] cannot post: no user (is anonymous auth enabled?).');
+      return;
+    }
+
+    const insertRow = {
+      owner_id: userId,
       handle: '@you',
       lat: 1.35,
       lng: 103.82,
       city: 'SINGAPORE',
       hood: 'SENGKANG',
-      trackName: data.track || '(UNTITLED)',
-      artistName: data.artist || '(UNKNOWN ARTIST)',
+      track_name: data.track || '(UNTITLED)',
+      artist_name: data.artist || '(UNKNOWN ARTIST)',
       service: data.service,
-      vibeNote: data.vibe || 'posted from here, right now.',
+      vibe_note: data.vibe || 'posted from here, right now.',
       link: data.link,
-      videoId,
-      hrs: 0,
-      own: true,
+      video_id: videoId,
     };
-    setExtra((prev) => [...prev, p]);
+
+    const { data: row, error } = await supabase
+      .from('posts')
+      .insert(insertRow)
+      .select()
+      .single();
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.warn('[supabase] insert failed:', error.message);
+      return;
+    }
+
+    // Add to local rows if realtime hasn't beaten us to it.
+    setRows((prev) => (prev.some((r) => r.id === row.id) ? prev : [row, ...prev]));
+
+    const newPost = rowToPost(row);
+    newPost.own = true;
+    newPost.hrs = 0;
+
     setComposeOpen(false);
     setEditing(null);
-    setSelected(p);
+    setSelected(newPost);
     setView('hood');
   };
 
