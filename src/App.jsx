@@ -910,13 +910,202 @@ function Globe({ posts, onPick }) {
   );
 }
 
+// ---------- scrub bar ----------
+// Click + drag, 2-finger trackpad swipe, and ←/→ keys when focused.
+// Visual: thin hairline track + accent fill + diamond thumb. Time display
+// in mono caps above. Departure-board aesthetic to match the rest.
+function ScrubBar({ currentTime, duration, onSeek }) {
+  const trackRef = useRef(null);
+  const currentTimeRef = useRef(currentTime);
+  const scrubTimeRef = useRef(0);
+  const [scrubbing, setScrubbing] = useState(false);
+  const [scrubTime, setScrubTime] = useState(0);
+
+  useEffect(() => {
+    currentTimeRef.current = currentTime;
+  }, [currentTime]);
+
+  const setScrub = useCallback((t) => {
+    scrubTimeRef.current = t;
+    setScrubTime(t);
+  }, []);
+
+  const fromClientX = useCallback(
+    (clientX) => {
+      const el = trackRef.current;
+      if (!el || !duration) return 0;
+      const rect = el.getBoundingClientRect();
+      const ratio = (clientX - rect.left) / rect.width;
+      return Math.max(0, Math.min(duration, ratio * duration));
+    },
+    [duration]
+  );
+
+  // ---- click + drag scrubbing ----
+  const handlePointerDown = (e) => {
+    if (!duration) return;
+    e.preventDefault();
+    setScrubbing(true);
+    setScrub(fromClientX(e.clientX));
+  };
+
+  useEffect(() => {
+    if (!scrubbing) return;
+    const onMove = (e) => setScrub(fromClientX(e.clientX));
+    const onUp = () => {
+      setScrubbing(false);
+      onSeek(scrubTimeRef.current);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, [scrubbing, fromClientX, onSeek, setScrub]);
+
+  // ---- 2-finger trackpad horizontal swipe ----
+  // React's onWheel is passive so we can't preventDefault inside it; attach
+  // imperatively with { passive: false }.
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el || !duration) return;
+    const onWheel = (e) => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return; // vertical scroll → ignore
+      e.preventDefault();
+      const delta = e.deltaX * 0.06; // ~60ms of seek per pixel of swipe
+      const target = Math.max(0, Math.min(duration, currentTimeRef.current + delta));
+      onSeek(target);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [duration, onSeek]);
+
+  // ---- ←/→ to seek ±5s when track is focused ----
+  const handleKeyDown = (e) => {
+    if (!duration) return;
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      onSeek(Math.max(0, currentTimeRef.current - 5));
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      onSeek(Math.min(duration, currentTimeRef.current + 5));
+    }
+  };
+
+  const displayed = scrubbing ? scrubTime : currentTime;
+  const progress = duration > 0 ? Math.max(0, Math.min(1, displayed / duration)) : 0;
+
+  return (
+    <div className="scrub-bar">
+      <div className="scrub-time">
+        <span className="scrub-current">{formatTime(displayed)}</span>
+        <span className="scrub-sep">/</span>
+        <span className="scrub-total">{formatTime(duration)}</span>
+      </div>
+      <div
+        ref={trackRef}
+        className={`scrub-track${scrubbing ? ' is-scrubbing' : ''}`}
+        onPointerDown={handlePointerDown}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+        role="slider"
+        aria-label="Seek"
+        aria-valuemin={0}
+        aria-valuemax={duration || 0}
+        aria-valuenow={Math.floor(displayed)}
+      >
+        <div className="scrub-fill" style={{ width: `${progress * 100}%` }} />
+        <div className="scrub-thumb" style={{ left: `${progress * 100}%` }} />
+      </div>
+    </div>
+  );
+}
+
 // ---------- neighborhood ----------
 function Hood({ post, onBack, onEdit, onDelete }) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const iframeRef = useRef(null);
+  const playerRef = useRef(null);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
 
   useEffect(() => {
     setIsPlaying(false);
   }, [post.id]);
+
+  // ---- YouTube IFrame Player API: load on play, poll currentTime, expose
+  //      seek via playerRef. Tear down on unmount / post change / stop. ----
+  useEffect(() => {
+    if (!isPlaying || !post.videoId) {
+      setDuration(0);
+      setCurrentTime(0);
+      if (playerRef.current) {
+        try { playerRef.current.destroy(); } catch (e) { /* noop */ }
+        playerRef.current = null;
+      }
+      return;
+    }
+
+    let cancelled = false;
+    let pollId = null;
+
+    loadYouTubeApi().then((YT) => {
+      if (cancelled || !YT || !iframeRef.current) return;
+      try {
+        playerRef.current = new YT.Player(iframeRef.current, {
+          events: {
+            onReady: (e) => {
+              if (cancelled) return;
+              try {
+                const d = e.target.getDuration();
+                if (Number.isFinite(d) && d > 0) setDuration(d);
+              } catch (err) { /* noop */ }
+              pollId = setInterval(() => {
+                if (cancelled || !playerRef.current) return;
+                try {
+                  const t = playerRef.current.getCurrentTime();
+                  if (Number.isFinite(t)) setCurrentTime(t);
+                  const d = playerRef.current.getDuration();
+                  if (Number.isFinite(d) && d > 0) setDuration((prev) => (prev === d ? prev : d));
+                } catch (err) { /* noop */ }
+              }, 250);
+            },
+            onStateChange: (e) => {
+              // 1 = playing — duration is reliable here, sometimes not on ready
+              if (e.data === 1) {
+                try {
+                  const d = e.target.getDuration();
+                  if (Number.isFinite(d) && d > 0) setDuration(d);
+                } catch (err) { /* noop */ }
+              }
+            },
+          },
+        });
+      } catch (err) {
+        // YT.Player throws if the iframe was already adopted; fall through.
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      if (pollId) clearInterval(pollId);
+      if (playerRef.current) {
+        try { playerRef.current.destroy(); } catch (e) { /* noop */ }
+        playerRef.current = null;
+      }
+    };
+  }, [isPlaying, post.id, post.videoId]);
+
+  const handleSeek = useCallback((t) => {
+    setCurrentTime(t);
+    const p = playerRef.current;
+    if (p && typeof p.seekTo === 'function') {
+      try { p.seekTo(t, true); } catch (e) { /* noop */ }
+    }
+  }, []);
 
   // seed from post id for reproducibility
   const seed = useMemo(() => {
@@ -1112,8 +1301,9 @@ function Hood({ post, onBack, onEdit, onDelete }) {
                 <circle cx="100" cy="100" r="2.4" fill={PALETTE.bg} />
               </svg>
               <iframe
+                ref={iframeRef}
                 className="hidden-embed"
-                src={`https://www.youtube.com/embed/${post.videoId}?autoplay=1&rel=0&modestbranding=1&controls=0`}
+                src={`https://www.youtube.com/embed/${post.videoId}?autoplay=1&rel=0&modestbranding=1&controls=0&enablejsapi=1&playsinline=1`}
                 title={`${post.trackName} — ${post.artistName}`}
                 allow="autoplay; encrypted-media"
                 aria-hidden="true"
@@ -1131,6 +1321,13 @@ function Hood({ post, onBack, onEdit, onDelete }) {
         <p className="post-vibe" key={post.id}>
           <SplitText text={post.vibeNote} />
         </p>
+        {isPlaying && post.videoId && (
+          <ScrubBar
+            currentTime={currentTime}
+            duration={duration}
+            onSeek={handleSeek}
+          />
+        )}
         <button
           className="btn play-btn"
           type="button"
@@ -2968,6 +3165,87 @@ body {
   letter-spacing: 0;
   margin: 14px 0 28px 0;
 }
+/* scrub bar — tape-transport feel: thin hairline track, accent fill,
+   diamond thumb, mono caps time read-out */
+.scrub-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 4px 0 22px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.scrub-time {
+  display: flex;
+  align-items: baseline;
+  font: 500 10px/1 'IBM Plex Mono', monospace;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: ${PALETTE.mute};
+  font-variant-numeric: tabular-nums;
+}
+.scrub-current {
+  color: ${PALETTE.accent};
+  min-width: 38px;
+}
+.scrub-sep { margin: 0 8px; opacity: 0.5; }
+.scrub-total { min-width: 38px; margin-left: auto; text-align: right; }
+.scrub-track {
+  position: relative;
+  height: 18px;
+  cursor: ew-resize;
+  touch-action: none;
+  outline: none;
+}
+.scrub-track::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: ${PALETTE.hairline};
+  transform: translateY(-50%);
+}
+.scrub-track:focus-visible::before {
+  background: ${PALETTE.ink};
+}
+.scrub-fill {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 1px;
+  background: ${PALETTE.accent};
+  transform: translateY(-50%);
+  pointer-events: none;
+  transition: width 0.12s linear;
+}
+.scrub-track.is-scrubbing .scrub-fill {
+  transition: none;
+}
+.scrub-thumb {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  background: ${PALETTE.ink};
+  pointer-events: none;
+  transform: translate(-50%, -50%) rotate(45deg);
+  transition: width 0.15s, height 0.15s, background 0.15s, left 0.12s linear;
+}
+.scrub-track:hover .scrub-thumb,
+.scrub-track:focus-visible .scrub-thumb {
+  width: 11px;
+  height: 11px;
+  background: ${PALETTE.accent};
+}
+.scrub-track.is-scrubbing .scrub-thumb {
+  width: 12px;
+  height: 12px;
+  background: ${PALETTE.accent};
+  transition: width 0.1s, height 0.1s, background 0.1s;
+}
+
 .play-btn { align-self: flex-start; margin-bottom: 22px; }
 .back-link {
   background: none; border: none;
