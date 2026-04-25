@@ -380,6 +380,36 @@ function formatHrs(hrs) {
   return `${Math.round(hrs / 24)}D AGO`;
 }
 
+function formatTime(sec) {
+  if (!Number.isFinite(sec) || sec < 0) sec = 0;
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+// ---------- YouTube IFrame API loader ----------
+// Loads once per page; promise resolves with window.YT once API is ready.
+let _ytApiPromise = null;
+function loadYouTubeApi() {
+  if (typeof window === 'undefined') return Promise.resolve(null);
+  if (window.YT && typeof window.YT.Player === 'function') return Promise.resolve(window.YT);
+  if (_ytApiPromise) return _ytApiPromise;
+  _ytApiPromise = new Promise((resolve) => {
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      if (typeof prev === 'function') {
+        try { prev(); } catch (e) { /* noop */ }
+      }
+      resolve(window.YT);
+    };
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    tag.async = true;
+    document.head.appendChild(tag);
+  });
+  return _ytApiPromise;
+}
+
 // ---------- globe ----------
 function Globe({ posts, onPick }) {
   const SIZE = 640;
@@ -1363,16 +1393,30 @@ function SearchModal({ posts, onClose, onPick, query, onQuery, serviceFilter, on
   }, [highlight]);
 
   return (
-    <div className="search-modal" onClick={onClose}>
-      <div className="search-panel" onClick={(e) => e.stopPropagation()}>
-        <span className="search-corner search-corner-tl" aria-hidden="true" />
-        <span className="search-corner search-corner-tr" aria-hidden="true" />
-        <span className="search-corner search-corner-bl" aria-hidden="true" />
-        <span className="search-corner search-corner-br" aria-hidden="true" />
+    <div className="search-modal" role="dialog" aria-modal="true" aria-label="Search">
+      <Noise />
+      <span className="search-corner search-corner-tl" aria-hidden="true" />
+      <span className="search-corner search-corner-tr" aria-hidden="true" />
+      <span className="search-corner search-corner-bl" aria-hidden="true" />
+      <span className="search-corner search-corner-br" aria-hidden="true" />
 
+      <div className="search-spine search-spine-l" aria-hidden="true">
+        <span>INDEX · LIVE FROM EVERYWHERE · {String(posts.length).padStart(3, '0')}</span>
+      </div>
+      <div className="search-spine search-spine-r" aria-hidden="true">
+        <span>SEARCH MODE · ESC TO RETURN TO GLOBE</span>
+      </div>
+
+      <div className="search-stage">
         <div className="search-head">
-          <span className="search-title">[ SEARCH · INDEX ]</span>
-          <button className="search-close" onClick={onClose} aria-label="Close">×</button>
+          <div className="search-head-left">
+            <span className="search-title">[ SEARCH · INDEX ]</span>
+            <span className="search-marquee">a directory of what the world is playing</span>
+          </div>
+          <button className="search-close" onClick={onClose} aria-label="Close search">
+            <span className="search-close-key">ESC</span>
+            <span className="search-close-x" aria-hidden="true">×</span>
+          </button>
         </div>
 
         <div className="search-input-wrap">
@@ -1908,12 +1952,17 @@ body {
   position: relative;
   z-index: 1;
   height: 100vh;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
+  overflow: hidden;
+  --bar-h: 56px;
 }
 
-/* header */
+/* header — translucent paper, frosted-glass blur over the globe */
 .header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 12;
   padding: 16px 28px 18px 28px;
   border-bottom: 1px solid ${PALETTE.hairline};
   display: flex;
@@ -1923,6 +1972,9 @@ body {
   font-size: 11px;
   letter-spacing: 0.12em;
   font-weight: 400;
+  background: rgba(240, 235, 223, 0.55);
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
 }
 .header-left { display: flex; gap: 10px; align-items: baseline; }
 .wordmark { font-weight: 500; color: ${PALETTE.ink}; letter-spacing: 0.12em; }
@@ -1967,20 +2019,23 @@ body {
   50%, 100% { opacity: 0; }
 }
 
-/* main */
+/* main — full-bleed canvas; bars float on top */
 .main {
-  position: relative;
+  position: absolute;
+  inset: 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 12px 24px;
+  padding: var(--bar-h) 24px;
   overflow: hidden;
 }
 
 /* globe */
 .globe-wrap {
-  width: 100%;
-  max-width: 720px;
+  /* Fill the largest square that fits in the available viewport area
+     (after the translucent header / footer bars + a touch of breathing room). */
+  width: min(95vw, calc(100vh - 2 * var(--bar-h, 56px) - 32px));
+  max-width: 100%;
   aspect-ratio: 1;
   touch-action: none;
   position: relative;
@@ -2083,8 +2138,13 @@ body {
   .mark { display: none; }
 }
 
-/* footer */
+/* footer — translucent paper, frosted-glass blur over the globe */
 .footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 12;
   padding: 16px 28px 18px 28px;
   border-top: 1px solid ${PALETTE.hairline};
   display: flex;
@@ -2095,6 +2155,9 @@ body {
   letter-spacing: 0.12em;
   color: ${PALETTE.mute};
   gap: 16px;
+  background: rgba(240, 235, 223, 0.55);
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
 }
 .footer > span { flex: 1; }
 
@@ -2146,10 +2209,14 @@ body {
   box-shadow: 0 0 0 2px ${PALETTE.bg};
 }
 
-/* search modal — full-screen departure board */
+/* search modal — full-bleed departure board */
 @keyframes search-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+@keyframes search-stage-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 @keyframes search-row-in {
   from { opacity: 0; transform: translateY(6px); }
@@ -2160,105 +2227,179 @@ body {
   50%, 100% { opacity: 0; }
 }
 @keyframes search-corners-in {
-  from { opacity: 0; transform: scale(0.92); }
+  from { opacity: 0; transform: scale(0.4); }
   to { opacity: 1; transform: scale(1); }
+}
+@keyframes search-spine-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .search-modal {
   position: fixed;
   inset: 0;
   z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 20px;
-  background: ${PALETTE.bgFade};
-  backdrop-filter: blur(14px) saturate(110%);
-  -webkit-backdrop-filter: blur(14px) saturate(110%);
-  animation: search-fade-in 0.18s ease-out;
-}
-.search-panel {
-  position: relative;
-  width: 100%;
-  max-width: 760px;
-  max-height: 100%;
   background: ${PALETTE.bg};
-  border: 1px solid ${PALETTE.hairline};
-  display: flex;
-  flex-direction: column;
-  padding: 28px 32px 0;
+  display: block;
   overflow: hidden;
+  animation: search-fade-in 0.2s ease-out;
 }
 
-/* corner brackets */
+/* the noise rendered inside the modal sits on top of the bg but below content */
+.search-modal > .noise {
+  z-index: 1;
+}
+
+/* the centered content rail. the modal background is full-bleed; this just
+   keeps line-lengths readable on wide screens. */
+.search-stage {
+  position: relative;
+  z-index: 3;
+  height: 100vh;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 56px 18px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  animation: search-stage-in 0.36s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* corner brackets — pushed all the way to the viewport corners */
 .search-corner {
   position: absolute;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   pointer-events: none;
-  animation: search-corners-in 0.32s 0.04s both ease-out;
+  z-index: 4;
+  animation: search-corners-in 0.42s 0.08s both cubic-bezier(0.2, 0.7, 0.2, 1);
+  transform-origin: center;
 }
 .search-corner-tl {
-  top: 8px;
-  left: 8px;
+  top: 18px;
+  left: 18px;
   border-top: 1px solid ${PALETTE.ink};
   border-left: 1px solid ${PALETTE.ink};
+  transform-origin: top left;
 }
 .search-corner-tr {
-  top: 8px;
-  right: 8px;
+  top: 18px;
+  right: 18px;
   border-top: 1px solid ${PALETTE.ink};
   border-right: 1px solid ${PALETTE.ink};
+  transform-origin: top right;
 }
 .search-corner-bl {
-  bottom: 8px;
-  left: 8px;
+  bottom: 18px;
+  left: 18px;
   border-bottom: 1px solid ${PALETTE.ink};
   border-left: 1px solid ${PALETTE.ink};
+  transform-origin: bottom left;
 }
 .search-corner-br {
-  bottom: 8px;
-  right: 8px;
+  bottom: 18px;
+  right: 18px;
   border-bottom: 1px solid ${PALETTE.ink};
   border-right: 1px solid ${PALETTE.ink};
+  transform-origin: bottom right;
+}
+
+/* vertical spines — decorative side labels in the gutters */
+.search-spine {
+  position: fixed;
+  top: 50%;
+  z-index: 4;
+  font: 500 9px/1 'IBM Plex Mono', monospace;
+  letter-spacing: 0.32em;
+  color: ${PALETTE.mute};
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: search-spine-in 0.4s 0.18s both ease-out;
+}
+.search-spine span { display: inline-block; }
+.search-spine-l {
+  left: 28px;
+  transform: translateY(-50%) rotate(-90deg);
+  transform-origin: left center;
+}
+.search-spine-r {
+  right: 28px;
+  transform: translateY(-50%) rotate(90deg);
+  transform-origin: right center;
+}
+@media (max-width: 1024px) {
+  .search-spine { display: none; }
 }
 
 .search-head {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
-  padding-bottom: 12px;
+  align-items: center;
+  padding-bottom: 18px;
   border-bottom: 1px solid ${PALETTE.hairline};
+  gap: 16px;
+}
+.search-head-left {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  min-width: 0;
 }
 .search-title {
   font: 500 11px/1 'IBM Plex Mono', monospace;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: ${PALETTE.ink};
+  white-space: nowrap;
+}
+.search-marquee {
+  font: 300 italic 13px/1 'IBM Plex Sans', system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  color: ${PALETTE.mute};
+  text-transform: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .search-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   background: transparent;
-  border: none;
+  border: 1px solid ${PALETTE.hairline};
   color: ${PALETTE.mute};
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 18px;
-  line-height: 1;
   cursor: pointer;
-  padding: 0 4px;
-  transition: color 0.15s;
+  padding: 6px 10px 6px 8px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
-.search-close:hover { color: ${PALETTE.ink}; }
+.search-close:hover { color: ${PALETTE.ink}; border-color: ${PALETTE.ink}; }
+.search-close-key {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  padding: 2px 5px;
+  border: 1px solid ${PALETTE.hairline};
+  color: inherit;
+}
+.search-close:hover .search-close-key { border-color: currentColor; }
+.search-close-x {
+  font-size: 16px;
+  line-height: 1;
+}
 
 .search-input-wrap {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 22px 4px 18px;
+  gap: 18px;
+  padding: 36px 4px 26px;
   border-bottom: 1px solid ${PALETTE.hairline};
 }
 .search-prompt {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 22px;
+  font-size: 30px;
   line-height: 1;
   color: ${PALETTE.accent};
   font-weight: 500;
@@ -2269,8 +2410,8 @@ body {
   background: transparent;
   border: none;
   outline: none;
-  font: 300 26px/1.2 'IBM Plex Sans', system-ui, sans-serif;
-  letter-spacing: 0.04em;
+  font: 200 42px/1.1 'IBM Plex Sans', system-ui, sans-serif;
+  letter-spacing: 0.005em;
   text-transform: none;
   color: ${PALETTE.ink};
   padding: 4px 0;
@@ -2278,11 +2419,12 @@ body {
 .search-big-input::placeholder {
   color: ${PALETTE.mute};
   font-style: italic;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
+  font-weight: 200;
 }
 .search-caret {
-  width: 1px;
-  height: 26px;
+  width: 1.5px;
+  height: 38px;
   background: ${PALETTE.ink};
   animation: search-caret 1.05s steps(1) infinite;
 }
@@ -2358,8 +2500,8 @@ body {
 .search-results {
   flex: 1;
   overflow-y: auto;
-  margin: 0 -32px;
-  padding: 0 32px 8px;
+  margin: 0 -56px;
+  padding: 0 56px 12px;
   scrollbar-width: thin;
   scrollbar-color: ${PALETTE.hairline} transparent;
 }
@@ -2368,14 +2510,14 @@ body {
 .search-list {
   list-style: none;
   margin: 0;
-  padding: 4px 0 4px;
+  padding: 6px 0 6px;
 }
 .search-result {
   display: grid;
-  grid-template-columns: 28px 44px minmax(0, 1.6fr) minmax(0, 1fr) 14px;
+  grid-template-columns: 36px 56px minmax(0, 2fr) minmax(0, 1fr) 16px;
   align-items: center;
-  gap: 14px;
-  padding: 11px 8px;
+  gap: 18px;
+  padding: 14px 8px;
   border-bottom: 1px dashed ${PALETTE.hairline};
   cursor: pointer;
   background: transparent;
@@ -2407,8 +2549,8 @@ body {
   transform: translateX(2px);
 }
 .result-index {
-  font: 500 10px/1 'IBM Plex Mono', monospace;
-  letter-spacing: 0.1em;
+  font: 500 11px/1 'IBM Plex Mono', monospace;
+  letter-spacing: 0.12em;
   color: ${PALETTE.mute};
   text-transform: uppercase;
 }
@@ -2430,34 +2572,36 @@ body {
 .result-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
 }
 .result-track {
-  font: 400 14px/1.3 'IBM Plex Sans', system-ui, sans-serif;
-  letter-spacing: 0.04em;
+  font: 400 17px/1.25 'IBM Plex Sans', system-ui, sans-serif;
+  letter-spacing: 0.02em;
   color: ${PALETTE.ink};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-transform: none;
 }
 .result-artist {
-  font: 300 italic 12px/1.3 'IBM Plex Sans', system-ui, sans-serif;
+  font: 300 italic 14px/1.3 'IBM Plex Sans', system-ui, sans-serif;
   color: ${PALETTE.inkFade};
   letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-transform: none;
 }
 .result-meta {
-  font: 500 10px/1.4 'IBM Plex Mono', monospace;
+  font: 500 10px/1.5 'IBM Plex Mono', monospace;
   color: ${PALETTE.mute};
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   text-align: right;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   align-items: flex-end;
   min-width: 0;
 }
@@ -2480,27 +2624,28 @@ body {
   justify-content: flex-end;
 }
 .result-arrow {
-  font: 500 14px/1 'IBM Plex Mono', monospace;
+  font: 500 16px/1 'IBM Plex Mono', monospace;
   color: ${PALETTE.mute};
   transition: color 0.15s, transform 0.15s;
 }
 
 .search-empty {
-  padding: 40px 16px 32px;
+  padding: 96px 16px 80px;
   text-align: center;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 14px;
 }
 .search-empty-line {
-  font: 300 18px/1.3 'IBM Plex Sans', system-ui, sans-serif;
+  font: 200 28px/1.2 'IBM Plex Sans', system-ui, sans-serif;
   font-style: italic;
   color: ${PALETTE.inkFade};
   letter-spacing: 0.02em;
+  text-transform: none;
 }
 .search-empty-hint {
   font: 500 10px/1 'IBM Plex Mono', monospace;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: ${PALETTE.mute};
 }
@@ -2508,18 +2653,18 @@ body {
 .search-footer {
   display: flex;
   justify-content: center;
-  gap: 24px;
-  padding: 12px 0 14px;
+  gap: 28px;
+  padding: 16px 0 18px;
   border-top: 1px solid ${PALETTE.hairline};
   margin-top: 4px;
   font-size: 10px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   color: ${PALETTE.mute};
 }
 .search-foot-item {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .search-footer kbd {
   font-family: 'IBM Plex Mono', monospace;
@@ -2534,13 +2679,36 @@ body {
   text-align: center;
 }
 
-@media (max-width: 560px) {
-  .search-panel { padding: 24px 18px 0; }
-  .search-results { margin: 0 -18px; padding: 0 18px 8px; }
-  .search-big-input { font-size: 20px; }
-  .search-result { grid-template-columns: 22px 14px 1fr auto 10px; gap: 10px; }
+@media (max-width: 900px) {
+  .search-stage { padding: 24px 36px 16px; }
+  .search-results { margin: 0 -36px; padding: 0 36px 10px; }
+  .search-big-input { font-size: 32px; }
+  .search-prompt { font-size: 26px; }
+  .search-caret { height: 30px; }
+}
+@media (max-width: 640px) {
+  .search-stage { padding: 22px 22px 14px; }
+  .search-results { margin: 0 -22px; padding: 0 22px 10px; }
+  .search-big-input { font-size: 24px; }
+  .search-prompt { font-size: 22px; }
+  .search-caret { height: 24px; }
+  .search-input-wrap { padding: 24px 4px 18px; }
+  .search-marquee { display: none; }
+  .search-result {
+    grid-template-columns: 26px 36px minmax(0, 1.4fr) minmax(0, 1fr) 12px;
+    gap: 12px;
+    padding: 12px 4px;
+  }
+  .result-track { font-size: 14px; }
+  .result-artist { font-size: 12px; }
   .result-meta { font-size: 9px; }
   .search-footer { gap: 14px; flex-wrap: wrap; }
+  .search-corner { width: 16px; height: 16px; }
+  .search-corner-tl, .search-corner-tr { top: 12px; }
+  .search-corner-bl, .search-corner-br { bottom: 12px; }
+  .search-corner-tl, .search-corner-bl { left: 12px; }
+  .search-corner-tr, .search-corner-br { right: 12px; }
+  .search-close-x { display: none; }
 }
 
 /* mine list view */
@@ -2975,5 +3143,7 @@ body {
   .sub { display: none; }
   .footer { flex-direction: column; gap: 12px; align-items: stretch; }
   .footer .btn { width: 100%; text-align: center; }
+  /* footer goes column on mobile — give .main extra bottom clearance */
+  .app { --bar-h: 96px; }
 }
 `;
