@@ -360,6 +360,45 @@ function videoIdFromLink(link) {
   return '';
 }
 
+// Spotify links → "kind:id" so we can rebuild the embed URL.
+// Supports https://open.spotify.com/{kind}/{id}, /intl-xx/{kind}/{id}, and the
+// spotify:{kind}:{id} URI form. Falls back to '' on anything we can't parse.
+const SPOTIFY_KINDS = new Set(['track', 'album', 'playlist', 'episode', 'show']);
+function spotifyIdFromLink(link) {
+  if (!link) return '';
+  const raw = link.trim();
+  // URI form: spotify:track:abc123
+  const uriMatch = raw.match(/^spotify:(track|album|playlist|episode|show):([A-Za-z0-9]+)/i);
+  if (uriMatch) return `${uriMatch[1].toLowerCase()}:${uriMatch[2]}`;
+  try {
+    const u = new URL(raw);
+    const host = u.hostname.replace(/^www\./, '');
+    if (host !== 'open.spotify.com' && host !== 'spotify.com') return '';
+    const parts = u.pathname.split('/').filter(Boolean);
+    // Strip /intl-xx/ locale prefix if present.
+    if (parts[0] && parts[0].startsWith('intl-')) parts.shift();
+    const [kind, id] = parts;
+    if (!kind || !id) return '';
+    if (!SPOTIFY_KINDS.has(kind.toLowerCase())) return '';
+    return `${kind.toLowerCase()}:${id.split('?')[0]}`;
+  } catch (e) {
+    // not a parseable URL
+  }
+  return '';
+}
+
+// Decode the stored "kind:id" back into pieces. Plain ids (no colon) default to
+// 'track' so old YouTube-only fixtures don't break if anything misroutes.
+function parseSpotifyEmbed(videoId) {
+  if (!videoId) return null;
+  const idx = videoId.indexOf(':');
+  if (idx === -1) return { kind: 'track', id: videoId };
+  const kind = videoId.slice(0, idx).toLowerCase();
+  const id = videoId.slice(idx + 1);
+  if (!SPOTIFY_KINDS.has(kind) || !id) return null;
+  return { kind, id };
+}
+
 function playUrlFor(post) {
   if (post.link) return post.link;
   const q = encodeURIComponent(`${post.artistName} ${post.trackName}`.trim());
@@ -1037,9 +1076,10 @@ function Hood({ post, onBack, onEdit, onDelete }) {
   }, [post.id]);
 
   // ---- YouTube IFrame Player API: load on play, poll currentTime, expose
-  //      seek via playerRef. Tear down on unmount / post change / stop. ----
+  //      seek via playerRef. Tear down on unmount / post change / stop.
+  //      Spotify embeds expose no JS API, so they skip this entirely. ----
   useEffect(() => {
-    if (!isPlaying || !post.videoId) {
+    if (!isPlaying || !post.videoId || post.service !== 'YOUTUBE') {
       setDuration(0);
       setCurrentTime(0);
       if (playerRef.current) {
@@ -1053,7 +1093,7 @@ function Hood({ post, onBack, onEdit, onDelete }) {
     let pollId = null;
 
     loadYouTubeApi().then((YT) => {
-      if (cancelled || !YT || !iframeRef.current) return;
+      if (cancelled || !YT || !iframeRef.current || post.service !== 'YOUTUBE') return;
       try {
         playerRef.current = new YT.Player(iframeRef.current, {
           events: {
@@ -1097,7 +1137,7 @@ function Hood({ post, onBack, onEdit, onDelete }) {
         playerRef.current = null;
       }
     };
-  }, [isPlaying, post.id, post.videoId]);
+  }, [isPlaying, post.id, post.videoId, post.service]);
 
   const handleSeek = useCallback((t) => {
     setCurrentTime(t);
@@ -1228,8 +1268,28 @@ function Hood({ post, onBack, onEdit, onDelete }) {
           </span>
           <span>{formatHrs(post.hrs)}</span>
         </div>
-        <div className={`post-glyph${isPlaying && post.videoId ? ' is-playing' : ''}`}>
-          {isPlaying && post.videoId ? (
+        <div
+          className={`post-glyph${
+            isPlaying && post.videoId ? ' is-playing' : ''
+          }${
+            isPlaying && post.videoId && post.service === 'SPOTIFY' ? ' is-spotify' : ''
+          }`}
+        >
+          {isPlaying && post.videoId && post.service === 'SPOTIFY' ? (
+            (() => {
+              const sp = parseSpotifyEmbed(post.videoId);
+              if (!sp) return <CoverGlyph artist={post.artistName} track={post.trackName} size={200} />;
+              return (
+                <iframe
+                  className="spotify-embed"
+                  src={`https://open.spotify.com/embed/${sp.kind}/${sp.id}?utm_source=globe-music`}
+                  title={`${post.trackName} — ${post.artistName}`}
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                />
+              );
+            })()
+          ) : isPlaying && post.videoId && post.service === 'YOUTUBE' ? (
             <>
               <svg viewBox="0 0 200 200" className="vinyl" shapeRendering="geometricPrecision">
                 {/* vinyl disc */}
@@ -1321,7 +1381,7 @@ function Hood({ post, onBack, onEdit, onDelete }) {
         <p className="post-vibe" key={post.id}>
           <SplitText text={post.vibeNote} />
         </p>
-        {isPlaying && post.videoId && (
+        {isPlaying && post.videoId && post.service === 'YOUTUBE' && (
           <ScrubBar
             currentTime={currentTime}
             duration={duration}
@@ -1939,7 +1999,9 @@ export default function App() {
   };
 
   const submit = async (data) => {
-    const videoId = data.service === 'YOUTUBE' ? videoIdFromLink(data.link) : '';
+    let videoId = '';
+    if (data.service === 'YOUTUBE') videoId = videoIdFromLink(data.link);
+    else if (data.service === 'SPOTIFY') videoId = spotifyIdFromLink(data.link);
 
     if (editing) {
       const patch = {
@@ -3106,6 +3168,21 @@ body {
 .post-glyph.is-playing {
   border-color: transparent;
   overflow: visible;
+}
+/* Spotify renders its own card (cover + controls) so we let the glyph slot
+   widen to the post column and shed its square aspect. */
+.post-glyph.is-spotify {
+  width: 100%;
+  max-width: 380px;
+  height: auto;
+}
+.spotify-embed {
+  width: 100%;
+  height: 152px;
+  border: 0;
+  border-radius: 0;
+  display: block;
+  background: ${PALETTE.bg};
 }
 .vinyl {
   width: 100%;
