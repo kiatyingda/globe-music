@@ -7,7 +7,18 @@ const PALETTE = {
   mute: '#8C8577',
   hairline: '#CFC8B8',
   accent: '#B0411E',
+  inkFade: 'rgba(10, 10, 10, 0.5)',
+  bgFade: 'rgba(240, 235, 223, 0.5)',
 };
+
+// ---------- iso numeric → alpha-2 (for country flags) ----------
+const ISO_NA = ('4=AF,8=AL,12=DZ,16=AS,20=AD,24=AO,28=AG,31=AZ,32=AR,36=AU,40=AT,44=BS,48=BH,50=BD,51=AM,52=BB,56=BE,60=BM,64=BT,68=BO,70=BA,72=BW,76=BR,84=BZ,90=SB,96=BN,100=BG,104=MM,108=BI,112=BY,116=KH,120=CM,124=CA,132=CV,140=CF,144=LK,148=TD,152=CL,156=CN,158=TW,170=CO,174=KM,178=CG,180=CD,188=CR,191=HR,192=CU,196=CY,203=CZ,204=BJ,208=DK,212=DM,214=DO,218=EC,222=SV,226=GQ,231=ET,232=ER,233=EE,242=FJ,246=FI,250=FR,258=PF,260=TF,262=DJ,266=GA,268=GE,270=GM,275=PS,276=DE,288=GH,292=GI,300=GR,304=GL,308=GD,316=GU,320=GT,324=GN,328=GY,332=HT,340=HN,344=HK,348=HU,352=IS,356=IN,360=ID,364=IR,368=IQ,372=IE,376=IL,380=IT,384=CI,388=JM,392=JP,398=KZ,400=JO,404=KE,408=KP,410=KR,414=KW,417=KG,418=LA,422=LB,426=LS,428=LV,430=LR,434=LY,438=LI,440=LT,442=LU,446=MO,450=MG,454=MW,458=MY,462=MV,466=ML,470=MT,478=MR,480=MU,484=MX,492=MC,496=MN,498=MD,499=ME,504=MA,508=MZ,512=OM,516=NA,520=NR,524=NP,528=NL,540=NC,548=VU,554=NZ,558=NI,562=NE,566=NG,578=NO,580=MP,581=UM,583=FM,584=MH,585=PW,586=PK,591=PA,598=PG,600=PY,604=PE,608=PH,616=PL,620=PT,624=GW,626=TL,630=PR,634=QA,638=RE,642=RO,643=RU,646=RW,654=SH,659=KN,662=LC,666=PM,670=VC,674=SM,678=ST,682=SA,686=SN,688=RS,690=SC,694=SL,702=SG,703=SK,704=VN,705=SI,706=SO,710=ZA,716=ZW,724=ES,728=SS,729=SD,732=EH,740=SR,748=SZ,752=SE,756=CH,760=SY,762=TJ,764=TH,768=TG,776=TO,780=TT,784=AE,788=TN,792=TR,795=TM,798=TV,800=UG,804=UA,807=MK,818=EG,826=GB,834=TZ,840=US,854=BF,858=UY,860=UZ,862=VE,882=WS,887=YE,894=ZM').split(',').reduce((acc, p) => { const [k, v] = p.split('='); acc[k] = v; return acc; }, {});
+
+function flagFromA2(a2) {
+  if (!a2 || a2.length !== 2) return '';
+  const A = 0x1F1E6;
+  return String.fromCodePoint(A + a2.charCodeAt(0) - 65) + String.fromCodePoint(A + a2.charCodeAt(1) - 65);
+}
 
 // ---------- hash ----------
 function hash(str) {
@@ -61,6 +72,7 @@ function topoToGeo(topology, name) {
     }
     return {
       type: 'Feature',
+      id: g.id,
       geometry: { type: g.type, coordinates: coords },
       properties: g.properties || {},
     };
@@ -245,46 +257,49 @@ function CoverGlyphInline({ artist, track, x = 0, y = 0, size = 48 }) {
 
 // ---------- mock posts ----------
 const MOCK_POSTS = [
-  { id: 1, handle: '@kiko_sun', lat: 35.6762, lng: 139.6503, city: 'TOKYO', hood: 'GINZA', trackName: 'First Love', artistName: 'Hikaru Utada', service: 'SPOTIFY', vibeNote: 'first rain of the season. 6am. ginza is a painting.', hrs: 0.15 },
-  { id: 2, handle: '@alfama_cat', lat: 38.7223, lng: -9.1393, city: 'LISBON', hood: 'ALFAMA', trackName: 'Tigresa', artistName: 'Caetano Veloso', service: 'SPOTIFY', vibeNote: 'saudade is its own weather.', hrs: 0.4 },
-  { id: 3, handle: '@late_train', lat: 1.3916, lng: 103.8953, city: 'SINGAPORE', hood: 'SENGKANG', trackName: 'Dreamer', artistName: 'Sungazer', service: 'YOUTUBE', vibeNote: 'mrt at midnight. bass in the rails.', hrs: 0.5 },
-  { id: 4, handle: '@bodega_nights', lat: 40.7178, lng: -73.9898, city: 'NEW YORK', hood: 'LES', trackName: 'White Ferrari', artistName: 'Frank Ocean', service: 'APPLE MUSIC', vibeNote: 'bodega cat, 4am, not my problem.', hrs: 0.9 },
-  { id: 5, handle: '@north_wind', lat: 64.1466, lng: -21.9426, city: 'REYKJAVÍK', hood: 'LAUGAVEGUR', trackName: 'Hoppípolla', artistName: 'Sigur Rós', service: 'SPOTIFY', vibeNote: 'aurora is thin. the song gets there anyway.', hrs: 0.75 },
-  { id: 6, handle: '@mole_poblano', lat: 17.0732, lng: -96.7266, city: 'OAXACA', hood: 'CENTRO', trackName: 'La Cumbia del Mole', artistName: 'Lila Downs', service: 'SOUNDCLOUD', vibeNote: 'mole and cumbia. nothing else survives.', hrs: 2.3 },
-  { id: 7, handle: '@nile_slow', lat: 30.0626, lng: 31.2197, city: 'CAIRO', hood: 'ZAMALEK', trackName: 'Enta Omri', artistName: 'Umm Kulthum', service: 'SPOTIFY', vibeNote: 'the nile is moving slower than the traffic.', hrs: 4 },
-  { id: 8, handle: '@noraebang', lat: 37.5340, lng: 126.9940, city: 'SEOUL', hood: 'ITAEWON', trackName: 'Through the Night', artistName: 'IU', service: 'APPLE MUSIC', vibeNote: 'noraebang at 4am. voice gone. worth it.', hrs: 6 },
-  { id: 9, handle: '@palermo_tango', lat: -34.5755, lng: -58.4305, city: 'BUENOS AIRES', hood: 'PALERMO', trackName: 'Santa Maria (del Buen Ayre)', artistName: 'Gotan Project', service: 'SPOTIFY', vibeNote: 'tango bleeds through the wall.', hrs: 8 },
-  { id: 10, handle: '@kreuz_hum', lat: 52.4996, lng: 13.4033, city: 'BERLIN', hood: 'KREUZBERG', trackName: 'Says', artistName: 'Nils Frahm', service: 'BANDCAMP', vibeNote: 'u-bahn hum. piano somewhere above.', hrs: 12 },
-  { id: 11, handle: '@bandra_rain', lat: 19.0596, lng: 72.8295, city: 'MUMBAI', hood: 'BANDRA', trackName: 'Dil Se Re', artistName: 'A.R. Rahman', service: 'SPOTIFY', vibeNote: 'monsoon. dosa. this song.', hrs: 3 },
-  { id: 12, handle: '@atlantic_wind', lat: -33.9293, lng: 18.4487, city: 'CAPE TOWN', hood: 'WOODSTOCK', trackName: 'Cucurucu', artistName: 'Nick Mulvey', service: 'APPLE MUSIC', vibeNote: 'atlantic wind at the bus stop.', hrs: 14 },
-  { id: 13, handle: '@fog_cathedral', lat: 37.7599, lng: -122.4148, city: 'SAN FRANCISCO', hood: 'MISSION', trackName: 'Nobody', artistName: 'Mitski', service: 'SPOTIFY', vibeNote: 'fog eating the hills.', hrs: 16 },
-  { id: 14, handle: '@ponsonby_drop', lat: -36.8509, lng: 174.7400, city: 'AUCKLAND', hood: 'PONSONBY', trackName: 'Wandering Eye', artistName: "Fat Freddy's Drop", service: 'BANDCAMP', vibeNote: 'pacific blue all the way down.', hrs: 5 },
-  { id: 15, handle: '@medina_tea', lat: 31.6295, lng: -7.9811, city: 'MARRAKECH', hood: 'MEDINA', trackName: 'Essiniya', artistName: 'Nass El Ghiwane', service: 'YOUTUBE', vibeNote: 'tea. spice. the square at dusk.', hrs: 7 },
-  { id: 16, handle: '@bosphorus', lat: 41.0359, lng: 28.9784, city: 'ISTANBUL', hood: 'BEYOĞLU', trackName: 'Yolcu', artistName: 'Altın Gün', service: 'SPOTIFY', vibeNote: 'bosphorus ferry. backward through time.', hrs: 11 },
-  { id: 17, handle: '@marble_cold', lat: 25.2072, lng: 55.2708, city: 'DUBAI', hood: 'JUMEIRAH', trackName: 'Piel', artistName: 'Arca', service: 'SOUNDCLOUD', vibeNote: 'sand in the ac. marble cold.', hrs: 20 },
-  { id: 18, handle: '@gion_heron', lat: 35.0037, lng: 135.7781, city: 'KYOTO', hood: 'GION', trackName: 'Sports Men', artistName: 'Haruomi Hosono', service: 'SPOTIFY', vibeNote: 'temple bell. a heron takes off.', hrs: 1.1 },
-  { id: 19, handle: '@malecon', lat: 23.1380, lng: -82.3772, city: 'HAVANA', hood: 'VEDADO', trackName: 'Dos Gardenias', artistName: 'Ibrahim Ferrer', service: 'SPOTIFY', vibeNote: 'malecón. the sea is warm.', hrs: 30 },
-  { id: 20, handle: '@ari_moto', lat: 13.7798, lng: 100.5418, city: 'BANGKOK', hood: 'ARI', trackName: 'Lover Boy', artistName: 'Phum Viphurit', service: 'YOUTUBE', vibeNote: 'moto taxi. neon through the rain.', hrs: 18 },
-  { id: 21, handle: '@midnight_sun', lat: 59.9225, lng: 10.7577, city: 'OSLO', hood: 'GRÜNERLØKKA', trackName: 'Runaway', artistName: 'Aurora', service: 'APPLE MUSIC', vibeNote: 'white night. fjord is glass.', hrs: 22 },
-  { id: 22, handle: '@belleville', lat: 48.8721, lng: 2.3770, city: 'PARIS', hood: 'BELLEVILLE', trackName: 'Tous les garçons et les filles', artistName: 'Françoise Hardy', service: 'SPOTIFY', vibeNote: 'seine. cigarette smoke. 9pm.', hrs: 26 },
-  { id: 23, handle: '@samba_wall', lat: -30.0277, lng: -51.2287, city: 'PORTO ALEGRE', hood: 'CIDADE BAIXA', trackName: 'A Carne', artistName: 'Elza Soares', service: 'SPOTIFY', vibeNote: 'samba school rehearses two streets away.', hrs: 34 },
-  { id: 24, handle: '@scooter_brake', lat: 21.0292, lng: 105.8542, city: 'HANOI', hood: 'HOAN KIEM', trackName: 'Cuốn Theo Chiều Gió', artistName: 'Saigon Soul Revival', service: 'BANDCAMP', vibeNote: 'pho steam. scooter. brake.', hrs: 19 },
-  { id: 25, handle: '@soder_ferry', lat: 59.3142, lng: 18.0720, city: 'STOCKHOLM', hood: 'SÖDERMALM', trackName: 'Heartbeats', artistName: 'The Knife', service: 'SPOTIFY', vibeNote: 'archipelago ferry. november.', hrs: 28 },
-  { id: 26, handle: '@bora_gate', lat: 45.6495, lng: 13.7768, city: 'TRIESTE', hood: 'CITTÀ VECCHIA', trackName: 'Ovunque Proteggi', artistName: 'Vinicio Capossela', service: 'SPOTIFY', vibeNote: 'bora wind at the bora gate.', hrs: 40 },
-  { id: 27, handle: '@teh_tarik', lat: 3.1319, lng: 101.6841, city: 'KUALA LUMPUR', hood: 'BANGSAR', trackName: 'Lullabies', artistName: 'Yuna', service: 'APPLE MUSIC', vibeNote: "teh tarik. storm's about to break.", hrs: 9 },
-  { id: 28, handle: '@sulfur_baths', lat: 41.6938, lng: 44.8015, city: 'TBILISI', hood: 'OLD TOWN', trackName: 'Gana Gana', artistName: 'Mgzavrebi', service: 'YOUTUBE', vibeNote: 'sulfur baths. rain stops. starts again.', hrs: 36 },
-  { id: 29, handle: '@jacaranda', lat: 19.4120, lng: -99.1730, city: 'CDMX', hood: 'CONDESA', trackName: 'Hasta la Raíz', artistName: 'Natalia Lafourcade', service: 'SPOTIFY', vibeNote: 'jacaranda. afternoon light. old café.', hrs: 24 },
-  { id: 30, handle: '@rooftop_mango', lat: 23.7465, lng: 90.3760, city: 'DHAKA', hood: 'DHANMONDI', trackName: 'Deora', artistName: 'Coke Studio Bangla', service: 'YOUTUBE', vibeNote: 'rooftop. mangoes. whole city below.', hrs: 38 },
-  { id: 31, handle: '@hamra_dawn', lat: 33.8998, lng: 35.4822, city: 'BEIRUT', hood: 'HAMRA', trackName: 'Li Beirut', artistName: 'Fairuz', service: 'SPOTIFY', vibeNote: 'mediterranean from the balcony. 7am.', hrs: 42 },
-  { id: 32, handle: '@kallio_snow', lat: 60.1841, lng: 24.9498, city: 'HELSINKI', hood: 'KALLIO', trackName: 'Deeper Shadows', artistName: 'Jaakko Eino Kalevi', service: 'BANDCAMP', vibeNote: 'sauna. snow. sauna.', hrs: 32 },
-  { id: 33, handle: '@matatu_bass', lat: -1.2921, lng: 36.7842, city: 'NAIROBI', hood: 'KILIMANI', trackName: 'Mungu Pekee', artistName: 'Nyashinski', service: 'APPLE MUSIC', vibeNote: 'matatu bass. dust. golden hour.', hrs: 48 },
-  { id: 34, handle: '@bodega_lima', lat: -12.1461, lng: -77.0224, city: 'LIMA', hood: 'BARRANCO', trackName: 'María Landó', artistName: 'Susana Baca', service: 'SPOTIFY', vibeNote: 'fog off the sea. bodega opens.', hrs: 52 },
-  { id: 35, handle: '@thamel', lat: 27.7151, lng: 85.3107, city: 'KATHMANDU', hood: 'THAMEL', trackName: 'Sathi', artistName: 'Bartika Eam Rai', service: 'YOUTUBE', vibeNote: 'himalayan dawn. tea is too hot.', hrs: 44 },
-  { id: 36, handle: '@cobbles', lat: 56.9496, lng: 24.1052, city: 'RIGA', hood: 'CENTRS', trackName: 'Nobody Knows', artistName: 'Lauris Reiniks', service: 'SPOTIFY', vibeNote: 'cobblestones. black coffee. tram bell.', hrs: 56 },
-  { id: 37, handle: '@orthodox', lat: 42.6977, lng: 23.3219, city: 'SOFIA', hood: 'CENTRE', trackName: 'Izlel E Delyu Haydutin', artistName: 'Valya Balkanska', service: 'SPOTIFY', vibeNote: 'orthodox bells. first frost.', hrs: 60 },
-  { id: 38, handle: '@makati_rain', lat: 14.5547, lng: 121.0244, city: 'MANILA', hood: 'MAKATI', trackName: 'Kathang Isip', artistName: 'Ben&Ben', service: 'APPLE MUSIC', vibeNote: 'typhoon skies. jeepney horn.', hrs: 17 },
-  { id: 39, handle: '@freo_fish', lat: -32.0569, lng: 115.7439, city: 'PERTH', hood: 'FREMANTLE', trackName: 'The Less I Know The Better', artistName: 'Tame Impala', service: 'SPOTIFY', vibeNote: 'indian ocean. fish and chips. 4pm.', hrs: 46 },
-  { id: 40, handle: '@jordaan_cafe', lat: 52.3742, lng: 4.8843, city: 'AMSTERDAM', hood: 'JORDAAN', trackName: 'A Night Like This', artistName: 'Caro Emerald', service: 'SPOTIFY', vibeNote: 'canal ice. candle. brown café.', hrs: 50 },
+  { id: 1, handle: '@kiko_sun', lat: 35.6762, lng: 139.6503, city: 'TOKYO', hood: 'GINZA', trackName: 'First Love', artistName: 'Hikaru Utada', service: 'YOUTUBE', videoId: 'o1sUaVJUeB0', vibeNote: 'first rain of the season. 6am. ginza is a painting.', hrs: 0.15 },
+  { id: 2, handle: '@alfama_cat', lat: 38.7223, lng: -9.1393, city: 'LISBON', hood: 'ALFAMA', trackName: 'Tigresa', artistName: 'Caetano Veloso', service: 'YOUTUBE', videoId: 'sSqU6vgs3Dc', vibeNote: 'saudade is its own weather.', hrs: 0.4 },
+  { id: 3, handle: '@late_train', lat: 1.3916, lng: 103.8953, city: 'SINGAPORE', hood: 'SENGKANG', trackName: 'Dreamer', artistName: 'Sungazer', service: 'YOUTUBE', videoId: '', vibeNote: 'mrt at midnight. bass in the rails.', hrs: 0.5 },
+  { id: 4, handle: '@bodega_nights', lat: 40.7178, lng: -73.9898, city: 'NEW YORK', hood: 'LES', trackName: 'White Ferrari', artistName: 'Frank Ocean', service: 'YOUTUBE', videoId: 'ToO4VFCoR7U', vibeNote: 'bodega cat, 4am, not my problem.', hrs: 0.9 },
+  { id: 5, handle: '@north_wind', lat: 64.1466, lng: -21.9426, city: 'REYKJAVÍK', hood: 'LAUGAVEGUR', trackName: 'Hoppípolla', artistName: 'Sigur Rós', service: 'YOUTUBE', videoId: 'JAYb8ZyjzD0', vibeNote: 'aurora is thin. the song gets there anyway.', hrs: 0.75 },
+  { id: 6, handle: '@mole_poblano', lat: 17.0732, lng: -96.7266, city: 'OAXACA', hood: 'CENTRO', trackName: 'La Cumbia del Mole', artistName: 'Lila Downs', service: 'SOUNDCLOUD', videoId: 'tMpMOOAQ_90', vibeNote: 'mole and cumbia. nothing else survives.', hrs: 2.3 },
+  { id: 7, handle: '@nile_slow', lat: 30.0626, lng: 31.2197, city: 'CAIRO', hood: 'ZAMALEK', trackName: 'Enta Omri', artistName: 'Umm Kulthum', service: 'YOUTUBE', videoId: 'XPGHpBOt5sE', vibeNote: 'the nile is moving slower than the traffic.', hrs: 4 },
+  { id: 8, handle: '@noraebang', lat: 37.5340, lng: 126.9940, city: 'SEOUL', hood: 'ITAEWON', trackName: 'Through the Night', artistName: 'IU', service: 'YOUTUBE', videoId: 'BzYnNdJhZQw', vibeNote: 'noraebang at 4am. voice gone. worth it.', hrs: 6 },
+  { id: 9, handle: '@palermo_tango', lat: -34.5755, lng: -58.4305, city: 'BUENOS AIRES', hood: 'PALERMO', trackName: 'Santa Maria (del Buen Ayre)', artistName: 'Gotan Project', service: 'SOUNDCLOUD', videoId: 'mX87sc-0-ic', vibeNote: 'tango bleeds through the wall.', hrs: 8 },
+  { id: 10, handle: '@kreuz_hum', lat: 52.4996, lng: 13.4033, city: 'BERLIN', hood: 'KREUZBERG', trackName: 'Says', artistName: 'Nils Frahm', service: 'BANDCAMP', videoId: 'dIwwjy4slI8', vibeNote: 'u-bahn hum. piano somewhere above.', hrs: 12 },
+  { id: 11, handle: '@bandra_rain', lat: 19.0596, lng: 72.8295, city: 'MUMBAI', hood: 'BANDRA', trackName: 'Dil Se Re', artistName: 'A.R. Rahman', service: 'YOUTUBE', videoId: 'QjbGePa-vG0', vibeNote: 'monsoon. dosa. this song.', hrs: 3 },
+  { id: 12, handle: '@atlantic_wind', lat: -33.9293, lng: 18.4487, city: 'CAPE TOWN', hood: 'WOODSTOCK', trackName: 'Cucurucu', artistName: 'Nick Mulvey', service: 'YOUTUBE', videoId: '2O1-XNwNq70', vibeNote: 'atlantic wind at the bus stop.', hrs: 14 },
+  { id: 13, handle: '@fog_cathedral', lat: 37.7599, lng: -122.4148, city: 'SAN FRANCISCO', hood: 'MISSION', trackName: 'Nobody', artistName: 'Mitski', service: 'BANDCAMP', videoId: 'qooWnw5rEcI', vibeNote: 'fog eating the hills.', hrs: 16 },
+  { id: 14, handle: '@ponsonby_drop', lat: -36.8509, lng: 174.7400, city: 'AUCKLAND', hood: 'PONSONBY', trackName: 'Wandering Eye', artistName: "Fat Freddy's Drop", service: 'BANDCAMP', videoId: 'JtyCtksvSOg', vibeNote: 'pacific blue all the way down.', hrs: 5 },
+  { id: 15, handle: '@medina_tea', lat: 31.6295, lng: -7.9811, city: 'MARRAKECH', hood: 'MEDINA', trackName: 'Essiniya', artistName: 'Nass El Ghiwane', service: 'YOUTUBE', videoId: 'evCDDXIWjrU', vibeNote: 'tea. spice. the square at dusk.', hrs: 7 },
+  { id: 16, handle: '@bosphorus', lat: 41.0359, lng: 28.9784, city: 'ISTANBUL', hood: 'BEYOĞLU', trackName: 'Yolcu', artistName: 'Altın Gün', service: 'BANDCAMP', videoId: 'AsDsAQFrGD0', vibeNote: 'bosphorus ferry. backward through time.', hrs: 11 },
+  { id: 17, handle: '@marble_cold', lat: 25.2072, lng: 55.2708, city: 'DUBAI', hood: 'JUMEIRAH', trackName: 'Piel', artistName: 'Arca', service: 'SOUNDCLOUD', videoId: 't1QSgdMPI5g', vibeNote: 'sand in the ac. marble cold.', hrs: 20 },
+  { id: 18, handle: '@gion_heron', lat: 35.0037, lng: 135.7781, city: 'KYOTO', hood: 'GION', trackName: 'Sports Men', artistName: 'Haruomi Hosono', service: 'YOUTUBE', videoId: '-uv-FhIOPvE', vibeNote: 'temple bell. a heron takes off.', hrs: 1.1 },
+  { id: 19, handle: '@malecon', lat: 23.1380, lng: -82.3772, city: 'HAVANA', hood: 'VEDADO', trackName: 'Dos Gardenias', artistName: 'Ibrahim Ferrer', service: 'YOUTUBE', videoId: 'fugRvM6s5fc', vibeNote: 'malecón. the sea is warm.', hrs: 30 },
+  { id: 20, handle: '@ari_moto', lat: 13.7798, lng: 100.5418, city: 'BANGKOK', hood: 'ARI', trackName: 'Lover Boy', artistName: 'Phum Viphurit', service: 'YOUTUBE', videoId: '8HnLRrQ3RS4', vibeNote: 'moto taxi. neon through the rain.', hrs: 18 },
+  { id: 21, handle: '@midnight_sun', lat: 59.9225, lng: 10.7577, city: 'OSLO', hood: 'GRÜNERLØKKA', trackName: 'Runaway', artistName: 'Aurora', service: 'YOUTUBE', videoId: 'd_HlPboLRL8', vibeNote: 'white night. fjord is glass.', hrs: 22 },
+  { id: 22, handle: '@belleville', lat: 48.8721, lng: 2.3770, city: 'PARIS', hood: 'BELLEVILLE', trackName: 'Tous les garçons et les filles', artistName: 'Françoise Hardy', service: 'YOUTUBE', videoId: 'LEUGSgmphwA', vibeNote: 'seine. cigarette smoke. 9pm.', hrs: 26 },
+  { id: 23, handle: '@samba_wall', lat: -30.0277, lng: -51.2287, city: 'PORTO ALEGRE', hood: 'CIDADE BAIXA', trackName: 'A Carne', artistName: 'Elza Soares', service: 'YOUTUBE', videoId: 'yktrUMoc1Xw', vibeNote: 'samba school rehearses two streets away.', hrs: 34 },
+  { id: 24, handle: '@scooter_brake', lat: 21.0292, lng: 105.8542, city: 'HANOI', hood: 'HOAN KIEM', trackName: 'Cuốn Theo Chiều Gió', artistName: 'Saigon Soul Revival', service: 'BANDCAMP', videoId: '', vibeNote: 'pho steam. scooter. brake.', hrs: 19 },
+  { id: 25, handle: '@soder_ferry', lat: 59.3142, lng: 18.0720, city: 'STOCKHOLM', hood: 'SÖDERMALM', trackName: 'Heartbeats', artistName: 'The Knife', service: 'BANDCAMP', videoId: 'pPD8Ja64mRU', vibeNote: 'archipelago ferry. november.', hrs: 28 },
+  { id: 26, handle: '@bora_gate', lat: 45.6495, lng: 13.7768, city: 'TRIESTE', hood: 'CITTÀ VECCHIA', trackName: 'Ovunque Proteggi', artistName: 'Vinicio Capossela', service: 'YOUTUBE', videoId: 'wx44rJvd7VY', vibeNote: 'bora wind at the bora gate.', hrs: 40 },
+  { id: 27, handle: '@teh_tarik', lat: 3.1319, lng: 101.6841, city: 'KUALA LUMPUR', hood: 'BANGSAR', trackName: 'Lullabies', artistName: 'Yuna', service: 'YOUTUBE', videoId: 'V3A9syKFpm0', vibeNote: "teh tarik. storm's about to break.", hrs: 9 },
+  { id: 28, handle: '@sulfur_baths', lat: 41.6938, lng: 44.8015, city: 'TBILISI', hood: 'OLD TOWN', trackName: 'Gana Gana', artistName: 'Mgzavrebi', service: 'YOUTUBE', videoId: '', vibeNote: 'sulfur baths. rain stops. starts again.', hrs: 36 },
+  { id: 29, handle: '@jacaranda', lat: 19.4120, lng: -99.1730, city: 'CDMX', hood: 'CONDESA', trackName: 'Hasta la Raíz', artistName: 'Natalia Lafourcade', service: 'YOUTUBE', videoId: 'iHSnLRrEC10', vibeNote: 'jacaranda. afternoon light. old café.', hrs: 24 },
+  { id: 30, handle: '@rooftop_mango', lat: 23.7465, lng: 90.3760, city: 'DHAKA', hood: 'DHANMONDI', trackName: 'Deora', artistName: 'Coke Studio Bangla', service: 'YOUTUBE', videoId: 'O8yq399dsyk', vibeNote: 'rooftop. mangoes. whole city below.', hrs: 38 },
+  { id: 31, handle: '@hamra_dawn', lat: 33.8998, lng: 35.4822, city: 'BEIRUT', hood: 'HAMRA', trackName: 'Li Beirut', artistName: 'Fairuz', service: 'YOUTUBE', videoId: 'OTejHfVWQUM', vibeNote: 'mediterranean from the balcony. 7am.', hrs: 42 },
+  { id: 32, handle: '@kallio_snow', lat: 60.1841, lng: 24.9498, city: 'HELSINKI', hood: 'KALLIO', trackName: 'Deeper Shadows', artistName: 'Jaakko Eino Kalevi', service: 'BANDCAMP', videoId: 'AoTDrwdPZjk', vibeNote: 'sauna. snow. sauna.', hrs: 32 },
+  { id: 33, handle: '@matatu_bass', lat: -1.2921, lng: 36.7842, city: 'NAIROBI', hood: 'KILIMANI', trackName: 'Mungu Pekee', artistName: 'Nyashinski', service: 'YOUTUBE', videoId: 'qKtryXQArWE', vibeNote: 'matatu bass. dust. golden hour.', hrs: 48 },
+  { id: 34, handle: '@bodega_lima', lat: -12.1461, lng: -77.0224, city: 'LIMA', hood: 'BARRANCO', trackName: 'María Landó', artistName: 'Susana Baca', service: 'YOUTUBE', videoId: 'muQ74N5LgkM', vibeNote: 'fog off the sea. bodega opens.', hrs: 52 },
+  { id: 35, handle: '@thamel', lat: 27.7151, lng: 85.3107, city: 'KATHMANDU', hood: 'THAMEL', trackName: 'Sathi', artistName: 'Bartika Eam Rai', service: 'YOUTUBE', videoId: '', vibeNote: 'himalayan dawn. tea is too hot.', hrs: 44 },
+  { id: 36, handle: '@cobbles', lat: 56.9496, lng: 24.1052, city: 'RIGA', hood: 'CENTRS', trackName: 'Nobody Knows', artistName: 'Lauris Reiniks', service: 'YOUTUBE', videoId: '', vibeNote: 'cobblestones. black coffee. tram bell.', hrs: 56 },
+  { id: 37, handle: '@orthodox', lat: 42.6977, lng: 23.3219, city: 'SOFIA', hood: 'CENTRE', trackName: 'Izlel E Delyu Haydutin', artistName: 'Valya Balkanska', service: 'YOUTUBE', videoId: '', vibeNote: 'orthodox bells. first frost.', hrs: 60 },
+  { id: 38, handle: '@makati_rain', lat: 14.5547, lng: 121.0244, city: 'MANILA', hood: 'MAKATI', trackName: 'Kathang Isip', artistName: 'Ben&Ben', service: 'YOUTUBE', videoId: 'Bcv2cH8rsKU', vibeNote: 'typhoon skies. jeepney horn.', hrs: 17 },
+  { id: 39, handle: '@freo_fish', lat: -32.0569, lng: 115.7439, city: 'PERTH', hood: 'FREMANTLE', trackName: 'The Less I Know The Better', artistName: 'Tame Impala', service: 'BANDCAMP', videoId: 'sBzrzS1Ag_g', vibeNote: 'indian ocean. fish and chips. 4pm.', hrs: 46 },
+  { id: 40, handle: '@jordaan_cafe', lat: 52.3742, lng: 4.8843, city: 'AMSTERDAM', hood: 'JORDAAN', trackName: 'A Night Like This', artistName: 'Caro Emerald', service: 'YOUTUBE', videoId: '74LXx0wSqMI', vibeNote: 'canal ice. candle. brown café.', hrs: 50 },
+  { id: 41, handle: '@yongkang_alley', lat: 25.0330, lng: 121.5294, city: 'TAIPEI', hood: 'YONGKANG', trackName: '小情歌', artistName: 'Sodagreen', service: 'YOUTUBE', videoId: 'in8NNzwFa-s', vibeNote: 'narrow alley. coffee steam. 5pm light.', hrs: 0.6 },
+  { id: 42, handle: '@xiangshan_haze', lat: 25.0277, lng: 121.5719, city: 'TAIPEI', hood: 'XIANGSHAN', trackName: '無與倫比的美麗', artistName: 'Sodagreen', service: 'YOUTUBE', videoId: 'NA4otP-v6iI', vibeNote: 'elephant mountain. 101 in the haze.', hrs: 16 },
+  { id: 43, handle: '@gongguan_rain', lat: 25.0148, lng: 121.5345, city: 'TAIPEI', hood: 'GONGGUAN', trackName: '你在煩惱什麼', artistName: 'Sodagreen', service: 'YOUTUBE', videoId: '-3TmzrEDuJ8', vibeNote: 'bookstore basement. rain outside.', hrs: 33 },
 ];
 
 // ---------- decrypted text ----------
@@ -364,6 +379,19 @@ function serviceFromLink(link) {
   return 'SPOTIFY';
 }
 
+function playUrlFor(post) {
+  if (post.link) return post.link;
+  const q = encodeURIComponent(`${post.artistName} ${post.trackName}`.trim());
+  switch (post.service) {
+    case 'APPLE MUSIC': return `https://music.apple.com/search?term=${q}`;
+    case 'YOUTUBE': return `https://www.youtube.com/results?search_query=${q}`;
+    case 'SOUNDCLOUD': return `https://soundcloud.com/search?q=${q}`;
+    case 'BANDCAMP': return `https://bandcamp.com/search?q=${q}`;
+    case 'SPOTIFY':
+    default: return `https://open.spotify.com/search/${q}`;
+  }
+}
+
 function formatHrs(hrs) {
   if (hrs === 0) return 'JUST NOW';
   if (hrs < 1) return `${Math.max(1, Math.round(hrs * 60))}M AGO`;
@@ -385,6 +413,7 @@ function Globe({ posts, onPick }) {
   const [countries, setCountries] = useState(null);
   const [offline, setOffline] = useState(false);
   const [hovered, setHovered] = useState(null);
+  const [hoveredCountry, setHoveredCountry] = useState(null);
 
   const graticule = useMemo(() => d3.geoGraticule10(), []);
   const projection = useMemo(
@@ -452,6 +481,8 @@ function Globe({ posts, onPick }) {
     drag.current.start = [...rotRef.current];
     drag.current.moved = 0;
     autoRef.current = false;
+    setHoveredCountry(null);
+    setHovered(null);
   }, []);
 
   const onPointerMove = useCallback((e) => {
@@ -579,15 +610,30 @@ function Globe({ posts, onPick }) {
         />
 
         {/* countries */}
-        {countries && (
-          <path
-            d={pathGen(countries)}
-            fill="none"
-            stroke={PALETTE.ink}
-            strokeWidth="0.5"
-            strokeLinejoin="round"
-          />
-        )}
+        {countries && countries.features.map((feat, i) => {
+          const d = pathGen(feat);
+          if (!d) return null;
+          const isHov = hoveredCountry && hoveredCountry.id === feat.id;
+          return (
+            <path
+              key={feat.id ?? i}
+              d={d}
+              fill={isHov ? PALETTE.ink : 'transparent'}
+              fillOpacity={isHov ? 0.06 : 1}
+              stroke={PALETTE.ink}
+              strokeWidth={isHov ? 0.8 : 0.5}
+              strokeLinejoin="round"
+              onPointerEnter={() => {
+                if (drag.current.captured) return;
+                setHoveredCountry(feat);
+              }}
+              onPointerLeave={() =>
+                setHoveredCountry((h) => (h && h.id === feat.id ? null : h))
+              }
+              style={{ cursor: 'default' }}
+            />
+          );
+        })}
 
         {/* posts */}
         {posts.map((p) => {
@@ -675,6 +721,50 @@ function Globe({ posts, onPick }) {
           );
         })()}
 
+        {/* country hover tooltip */}
+        {hoveredCountry && (() => {
+          const centroid = d3.geoCentroid(hoveredCountry);
+          const dist = d3.geoDistance(centroid, center);
+          if (dist > Math.PI / 2 - 0.04) return null;
+          const xy = projection(centroid);
+          if (!xy || Number.isNaN(xy[0])) return null;
+          const [cx, cy] = xy;
+          const name = (hoveredCountry.properties?.name || '').toUpperCase();
+          if (!name) return null;
+          const idStr = String(hoveredCountry.id ?? '');
+          const a2 = ISO_NA[idStr] || ISO_NA[String(parseInt(idStr, 10))];
+          const flag = flagFromA2(a2);
+          const w = Math.min(220, Math.max(60, name.length * 6.2 + (flag ? 30 : 14)));
+          const flip = cx + w + 14 > SIZE;
+          const tx = flip ? cx - w - 10 : cx + 10;
+          const ty = cy - 12;
+          return (
+            <g transform={`translate(${tx}, ${ty})`} style={{ pointerEvents: 'none' }}>
+              <rect x="0" y="0" width={w} height="22" fill={PALETTE.bg} stroke={PALETTE.ink} strokeWidth="0.6" />
+              {flag && (
+                <foreignObject x="6" y="3" width="20" height="18">
+                  <div
+                    xmlns="http://www.w3.org/1999/xhtml"
+                    style={{ fontSize: '13px', lineHeight: 1, fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif' }}
+                  >
+                    {flag}
+                  </div>
+                </foreignObject>
+              )}
+              <text
+                x={flag ? 28 : 8}
+                y="14"
+                fontSize="9"
+                fontFamily="'IBM Plex Mono'"
+                letterSpacing="1"
+                fill={PALETTE.ink}
+              >
+                {name.length > 28 ? name.slice(0, 27) + '…' : name}
+              </text>
+            </g>
+          );
+        })()}
+
         {offline && (
           <text
             x={CX}
@@ -696,6 +786,12 @@ function Globe({ posts, onPick }) {
 
 // ---------- neighborhood ----------
 function Hood({ post, onBack }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    setIsPlaying(false);
+  }, [post.id]);
+
   // seed from post id for reproducibility
   const seed = useMemo(() => {
     let s = 0;
@@ -807,11 +903,99 @@ function Hood({ post, onBack }) {
 
       <div className="post-card">
         <div className="now-playing">
-          <span>[ NOW PLAYING ]</span>
+          <span className="now-playing-label">
+            [ NOW PLAYING ]
+            {isPlaying && post.videoId && (
+              <span className="eq" aria-hidden="true">
+                <span /><span /><span /><span /><span />
+              </span>
+            )}
+          </span>
           <span>{formatHrs(post.hrs)}</span>
         </div>
-        <div className="post-glyph">
-          <CoverGlyph artist={post.artistName} track={post.trackName} size={200} />
+        <div className={`post-glyph${isPlaying && post.videoId ? ' is-playing' : ''}`}>
+          {isPlaying && post.videoId ? (
+            <>
+              <svg viewBox="0 0 200 200" className="vinyl" shapeRendering="geometricPrecision">
+                {/* vinyl disc */}
+                <circle cx="100" cy="100" r="99" fill={PALETTE.ink} />
+                {/* outer rim highlight */}
+                <circle cx="100" cy="100" r="98.5" fill="none" stroke={PALETTE.bg} strokeOpacity="0.2" strokeWidth="0.5" />
+                {/* grooves — fine */}
+                {Array.from({ length: 22 }, (_, i) => 38 + i * 2.7).map((r, i) => (
+                  <circle
+                    key={`g${i}`}
+                    cx="100"
+                    cy="100"
+                    r={r}
+                    fill="none"
+                    stroke={PALETTE.bg}
+                    strokeOpacity={0.04 + (i % 4 === 0 ? 0.06 : 0)}
+                    strokeWidth="0.4"
+                  />
+                ))}
+                {/* light reflection arc */}
+                <path
+                  d="M 30 100 A 70 70 0 0 1 100 30"
+                  fill="none"
+                  stroke={PALETTE.bg}
+                  strokeOpacity="0.1"
+                  strokeWidth="14"
+                  strokeLinecap="round"
+                />
+                {/* label */}
+                <circle cx="100" cy="100" r="34" fill={PALETTE.accent} />
+                <circle cx="100" cy="100" r="34" fill="none" stroke={PALETTE.bg} strokeOpacity="0.25" strokeWidth="0.6" />
+                <text
+                  x="100"
+                  y="89"
+                  textAnchor="middle"
+                  fontFamily="IBM Plex Mono"
+                  fontSize="6"
+                  fontWeight="500"
+                  fill={PALETTE.bg}
+                  letterSpacing="0.6"
+                >
+                  {(post.trackName || '').toUpperCase().slice(0, 18)}
+                </text>
+                <text
+                  x="100"
+                  y="100"
+                  textAnchor="middle"
+                  fontFamily="IBM Plex Mono"
+                  fontSize="5"
+                  fill={PALETTE.bg}
+                  fillOpacity="0.75"
+                  letterSpacing="0.5"
+                >
+                  {(post.artistName || '').toUpperCase().slice(0, 22)}
+                </text>
+                <text
+                  x="100"
+                  y="115"
+                  textAnchor="middle"
+                  fontFamily="IBM Plex Mono"
+                  fontSize="4.5"
+                  fill={PALETTE.bg}
+                  fillOpacity="0.55"
+                  letterSpacing="0.6"
+                >
+                  GLOBE · {post.city}
+                </text>
+                {/* spindle hole */}
+                <circle cx="100" cy="100" r="2.4" fill={PALETTE.bg} />
+              </svg>
+              <iframe
+                className="hidden-embed"
+                src={`https://www.youtube.com/embed/${post.videoId}?autoplay=1&rel=0&modestbranding=1&controls=0`}
+                title={`${post.trackName} — ${post.artistName}`}
+                allow="autoplay; encrypted-media"
+                aria-hidden="true"
+              />
+            </>
+          ) : (
+            <CoverGlyph artist={post.artistName} track={post.trackName} size={200} />
+          )}
         </div>
         <h1 className="post-track">{post.trackName}</h1>
         <p className="post-artist">{post.artistName}</p>
@@ -821,8 +1005,22 @@ function Hood({ post, onBack }) {
         <p className="post-vibe" key={post.id}>
           <SplitText text={post.vibeNote} />
         </p>
-        <button className="btn play-btn" type="button">
-          [ PLAY ON {post.service} ]
+        <button
+          className="btn play-btn"
+          type="button"
+          onClick={() => {
+            if (isPlaying) {
+              setIsPlaying(false);
+              return;
+            }
+            if (post.videoId) {
+              setIsPlaying(true);
+            } else {
+              window.open(playUrlFor(post), '_blank', 'noopener,noreferrer');
+            }
+          }}
+        >
+          {isPlaying ? '[ STOP ]' : `[ PLAY ON ${post.service} ]`}
         </button>
         <button className="back-link" type="button" onClick={onBack}>
           ← BACK TO GLOBE
@@ -924,9 +1122,10 @@ function Compose({ onClose, onSubmit }) {
 }
 
 // ---------- header ----------
-function Header({ total, live }) {
+function Header({ total, live, mine, onMine }) {
   const t = String(total).padStart(3, '0');
   const l = String(live).padStart(2, '0');
+  const m = String(mine).padStart(2, '0');
   return (
     <header className="header">
       <div className="header-left">
@@ -942,6 +1141,14 @@ function Header({ total, live }) {
           {t} PLAYS · {l} LIVE
         </span>
         {live > 0 && <span className="live-dot" />}
+        <button
+          type="button"
+          className={`chip${mine === 0 ? ' chip-empty' : ''}`}
+          onClick={onMine}
+          title={mine > 0 ? 'JUMP TO YOUR POSTS' : 'POST SOMETHING'}
+        >
+          {m} YOURS
+        </button>
       </div>
     </header>
   );
@@ -972,9 +1179,22 @@ export default function App() {
 
   const posts = useMemo(() => [...MOCK_POSTS, ...extra], [extra]);
   const live = useMemo(() => posts.filter((p) => p.hrs < 1 || p.own).length, [posts]);
+  const ownPosts = useMemo(() => posts.filter((p) => p.own), [posts]);
+  const ownCursorRef = useRef(0);
 
   const pick = (p) => {
     setSelected(p);
+    setView('hood');
+  };
+
+  const goToMine = () => {
+    if (ownPosts.length === 0) {
+      setComposeOpen(true);
+      return;
+    }
+    const idx = ownCursorRef.current % ownPosts.length;
+    ownCursorRef.current = idx + 1;
+    setSelected(ownPosts[idx]);
     setView('hood');
   };
 
@@ -1015,7 +1235,7 @@ export default function App() {
       <style>{STYLES}</style>
       <Noise />
       <div className="app">
-        <Header total={posts.length} live={live} />
+        <Header total={posts.length} live={live} mine={ownPosts.length} onMine={goToMine} />
         <main className="main">
           {view === 'globe' ? (
             <Globe posts={posts} onPick={pick} />
@@ -1090,6 +1310,34 @@ body {
 .bracket { color: ${PALETTE.mute}; font-weight: 400; }
 .sub { color: ${PALETTE.mute}; font-weight: 400; }
 .counter { color: ${PALETTE.ink}; display: flex; align-items: center; gap: 10px; }
+.chip {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid ${PALETTE.ink};
+  color: ${PALETTE.ink};
+  padding: 3px 9px;
+  margin-left: 4px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  border-radius: 0;
+}
+.chip:hover {
+  background: ${PALETTE.ink};
+  color: ${PALETTE.bg};
+}
+.chip.chip-empty {
+  border-color: ${PALETTE.hairline};
+  color: ${PALETTE.mute};
+}
+.chip.chip-empty:hover {
+  border-color: ${PALETTE.ink};
+  color: ${PALETTE.inkFade};
+  background: transparent;
+}
 .live-dot {
   width: 6px; height: 6px; background: ${PALETTE.accent};
   display: inline-block;
@@ -1189,13 +1437,13 @@ body {
   cursor: pointer;
   transition: color 0.15s, background 0.15s;
 }
-.btn:hover { color: ${PALETTE.accent}; }
+.btn:hover { color: ${PALETTE.bgFade}; }
 .btn-ghost {
   background: transparent;
   color: ${PALETTE.ink};
   border: 1px solid ${PALETTE.hairline};
 }
-.btn-ghost:hover { color: ${PALETTE.accent}; border-color: ${PALETTE.ink}; }
+.btn-ghost:hover { color: ${PALETTE.inkFade}; border-color: ${PALETTE.ink}; }
 .btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .btn:disabled:hover { color: ${PALETTE.bg}; }
 
@@ -1235,11 +1483,67 @@ body {
   letter-spacing: 0.12em;
   margin-bottom: 22px;
 }
+.now-playing-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 11px;
+}
+.eq > span {
+  display: inline-block;
+  width: 2px;
+  background: ${PALETTE.accent};
+  height: 3px;
+  transform-origin: bottom;
+  animation: eqBar 1s ease-in-out infinite;
+}
+.eq > span:nth-child(1) { animation-delay: 0s;    animation-duration: 0.9s; }
+.eq > span:nth-child(2) { animation-delay: 0.15s; animation-duration: 1.1s; }
+.eq > span:nth-child(3) { animation-delay: 0.05s; animation-duration: 0.7s; }
+.eq > span:nth-child(4) { animation-delay: 0.25s; animation-duration: 1.3s; }
+.eq > span:nth-child(5) { animation-delay: 0.4s;  animation-duration: 0.8s; }
+@keyframes eqBar {
+  0%, 100% { height: 3px; }
+  50%      { height: 11px; }
+}
 .post-glyph {
+  position: relative;
   width: 200px;
   height: 200px;
   margin-bottom: 26px;
   border: 1px solid ${PALETTE.hairline};
+  overflow: hidden;
+  transition: border-color 0.2s, background 0.2s;
+}
+.post-glyph.is-playing {
+  border-color: transparent;
+  overflow: visible;
+}
+.vinyl {
+  width: 100%;
+  height: 100%;
+  display: block;
+  animation: vinylSpin 3.6s linear infinite;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+@keyframes vinylSpin {
+  to { transform: rotate(360deg); }
+}
+.hidden-embed {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  border: 0;
+  left: -10px;
+  top: -10px;
 }
 .post-track {
   font-family: 'IBM Plex Sans', sans-serif;
@@ -1291,7 +1595,7 @@ body {
   text-align: left;
   align-self: flex-start;
 }
-.back-link:hover { color: ${PALETTE.accent}; }
+.back-link:hover { color: ${PALETTE.inkFade}; }
 
 @media (max-width: 760px) {
   .hood { grid-template-columns: 1fr; gap: 28px; padding: 16px; }
@@ -1335,7 +1639,7 @@ body {
   color: ${PALETTE.ink};
   padding: 0; line-height: 1;
 }
-.modal-close:hover { color: ${PALETTE.accent}; }
+.modal-close:hover { color: ${PALETTE.inkFade}; }
 .modal-row {
   font-size: 10px;
   letter-spacing: 0.12em;
